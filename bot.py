@@ -177,7 +177,7 @@ def initScrapedTable():
     list_data = []
 
     try:
-        for post in get_posts('ilcomunedicastelmadama', pages=2, credentials=(os.environ.get("FB_EMAIL", None), os.environ.get("FB_PASS", None))):
+        for post in get_posts('ilcomunedicastelmadama', pages=2, credentials=(os.environ.get("FB_EMAIL", None), os.environ.get("FB_PASS", None)), cookies=StringIO(os.environ.get("COOKIES", None))):
             list_data.append([ post["post_id"], post["text"].replace("...", ""), int(datetime.timestamp(post["time"])) ])
         
         if len(list_data) == 0:
