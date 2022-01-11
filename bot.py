@@ -12,7 +12,7 @@ from datetime import datetime
 from dateutil import parser
 import psycopg2
 
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filers
+from telegram.ext import Updater, CommandHandler, MessageHandler
 import telegram
 
 from discord_webhook import DiscordWebhook, DiscordEmbed
