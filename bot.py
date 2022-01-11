@@ -28,7 +28,7 @@ DONATION = os.environ.get("DONATION", None)
 
 TOKEN = os.environ.get("TOKEN_BOT", None)
 CHANNEL = os.environ.get("CHANNEL_ID", None)
-RESETBOT = os.environ.get("RESET_BOT", None)
+RESETBOT = "https://api.telegram.org/bot"+TOKEN+"/setWebhook?url="
 DATABASE_URL = os.environ.get("DATABASE_URL", None)
 
 DISCORD_URL = os.environ.get("DISCORD_URL", None)
