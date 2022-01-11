@@ -48,7 +48,7 @@ def check_conn():
     
     try:
         cur = conn.cursor()
-        cur.execute("SELECT * FROM chat_id;")
+        cur.execute("SELECT * FROM timestamp;")
     except psycopg2.OperationalError:
         logging.error("Problem with database connection, open another one")
         cur.close()
