@@ -15,7 +15,7 @@ import psycopg2
 import telepot
 from telepot.loop import MessageLoop
 
-#from discord_webhook import DiscordWebhook, DiscordEmbed
+from discord_webhook import DiscordWebhook, DiscordEmbed
 
 logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)s [%(funcName)s] %(message)s', datefmt='%Y-%m-%d,%H:%M:%S', level=logging.INFO)
 
@@ -29,11 +29,11 @@ CHANNEL = os.environ.get("CHANNEL_ID", None)
 RESETBOT = os.environ.get("RESET_BOT", None)
 DATABASE_URL = os.environ.get("DATABASE_URL", None)
 
-#DISCORD_URL = os.environ.get("DISCORD_URL", None)
-#DISCORD_AUTHOR_URL = ""
-#DISCORD_AUTHOR_ICON = ""
+DISCORD_URL = os.environ.get("DISCORD_URL", None)
+DISCORD_AUTHOR_URL = "http://t.me/ilcomunedicastelmadamabot"
+DISCORD_AUTHOR_ICON = "https://i.ibb.co/CtSBXRV/image.jpg"
 
-#webhook = DiscordWebhook(url=DISCORD_URL)
+webhook = DiscordWebhook(url=DISCORD_URL)
 
 # Initialize value
 last_timestamp = 0
@@ -75,13 +75,12 @@ def handle_stop(sig, frame):
     fromVarToDB()
 
     logging.info("Last timestamp is updated, now I can exit safely")
-    '''
-    reboot_msg = "Il dyno si è riavviato.\nIscritti totali: %d; attivi: %d, inattivi: %d."%(len(chat_id_dict['active'])+len(chat_id_dict['stopped']), len(chat_id_dict['active']), len(chat_id_dict['stopped']))
+    
+    reboot_msg = "Il dyno si è riavviato."
     embed = DiscordEmbed(title='♻️♻️♻️ Stato ♻️♻️♻', description=reboot_msg)
-    embed.set_author(name='Terremoti Vicovaro Bot', url=DISCORD_AUTHOR_URL, icon_url=DISCORD_AUTHOR_ICON)
+    embed.set_author(name='Comune di Castel Madama Bot', url=DISCORD_AUTHOR_URL, icon_url=DISCORD_AUTHOR_ICON)
     webhook.add_embed(embed)
     webhook.execute()
-    '''
 
     sys.exit(0)
 
@@ -168,30 +167,6 @@ def initTable():
     return df
 
 
-'''
-def storeFakeEvent(event, timestamp):
-    check_conn()
-
-    cur = conn.cursor()
-
-    cur.execute("INSERT INTO fake_events(eventid, timestamp) VALUES (%s, %s);", (int(event['EventID']), timestamp))
-
-    conn.commit()
-    cur.close()
-
-def realNewEvent(event):
-    rawtimestamp = str(event['Time'])                                   #2021-01-23T13:09:56.000000
-    rawdate = rawtimestamp.split('T')[0]                                #2021-01-23
-
-    eventdate = date.fromisoformat(rawdate)
-    todaydate = datetime.now(timezone('Europe/Rome')).date()            # get Italy's date to fix if server is hosted in other countries
-
-    if eventdate == todaydate:
-        return True
-    return False
-'''
-
-
 def checkIfNewPost():
     global last_timestamp
     
@@ -201,6 +176,8 @@ def checkIfNewPost():
         logging.info("New post detected!")
         last_timestamp = head_ts
         logging.info("New value last_timestamp = "+str(last_timestamp))
+        fromVarToDB()
+        logging.info("New value stored in the database")
         return True
     else:
         return False
