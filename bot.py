@@ -1,4 +1,5 @@
-#from facebook_scraper import get_posts
+from facebook_scraper import get_posts
+from operator import itemgetter
 import urllib.request
 from urllib.error import URLError, HTTPError
 import time
@@ -7,12 +8,13 @@ import os
 from io import StringIO, BytesIO
 import pandas as pd
 import logging
+import traceback
 import signal
 from datetime import datetime
 from dateutil import parser
 import psycopg2
 
-from telegram.ext import Updater, CommandHandler, MessageHandler
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 import telegram
 
 from discord_webhook import DiscordWebhook, DiscordEmbed
@@ -37,6 +39,7 @@ webhook = DiscordWebhook(url=DISCORD_URL)
 
 # Initialize value
 last_timestamp = 0
+last_message = ""
 
 
 def check_conn():
@@ -49,6 +52,7 @@ def check_conn():
     try:
         cur = conn.cursor()
         cur.execute("SELECT * FROM timestamp;")
+        cur.close()
     except psycopg2.OperationalError:
         logging.error("Problem with database connection, open another one")
         cur.close()
@@ -64,15 +68,17 @@ def handle_stop(sig, frame):
     check_conn()
 
     cur = conn.cursor()
-
-    cur.execute("UPDATE timestamp SET value = %s;", (str(last_timestamp),))
+    
+    cur.execute("SELECT * FROM timestamp;")
+    if len(cur.fetchall()) == 0:
+        cur.execute("INSERT INTO timestamp(value) VALUES (%s);", (str(last_timestamp),))
+    else:
+        cur.execute("UPDATE timestamp SET value = %s;", (str(last_timestamp),))
 
     conn.commit()
-
+    
     cur.close()
     conn.close()
-
-    fromVarToDB()
 
     logging.info("Last timestamp is updated, now I can exit safely")
     
@@ -90,7 +96,7 @@ def fromVarToDB():
 
     cur = conn.cursor()
     
-    cur.execute("SELECT * FROM timestamp;", (str(last_timestamp),))
+    cur.execute("SELECT * FROM timestamp;")
     if len(cur.fetchall()) == 0:
         cur.execute("INSERT INTO timestamp(value) VALUES (%s);", (str(last_timestamp),))
     else:
@@ -135,7 +141,7 @@ def fromFileToVar():
     return ts
 
 
-def getFBPost():
+def getRSSPost():
     try:
         response = urllib.request.urlopen(FEEDRSS)
     
@@ -153,49 +159,72 @@ def getFBPost():
 
 
 def initTable():
-    FILETXT = None
+    FILECSV = None
 
-    s = getFBPost()
+    s = getRSSPost()
     if s.isdigit():
         logging.warn("Not possible to GET Data")
         return -1
     else:
-        FILETXT = StringIO(s)
+        FILECSV = StringIO(s)
 
-    df = pd.read_csv(FILETXT, sep=',')
+    df = pd.read_csv(FILECSV, sep=',')
 
     return df
 
-def initScraperTable():
-    FILETXT = None
 
-    return None
+def initScrapedTable():
+    list_data = []
+
+    try:
+        for post in get_posts('ilcomunedicastelmadama', pages=2, credentials=(os.environ.get("FB_EMAIL", None), os.environ.get("FB_PASS", None))):
+            list_data.append([ post["post_id"], post["text"].replace("...", ""), int(datetime.timestamp(post["time"])) ])
+        
+        if len(list_data) == 0:
+            return -1
+
+        list_data = sorted(list_data, key=itemgetter(2), reverse=True)      # sorting for timestamp in descending order
+
+        df_scraped = pd.DataFrame(list_data, columns = ['post_id', 'text', 'timestamp'])
+
+        return df_scraped
+    
+    except Exception as e:
+        logging.error(traceback.format_exc())
+        return -1
 
 
-def checkIfNewPost():
+def checkAndSendNewPost():
     global last_timestamp
     
-    head_ts = int(datetime.timestamp(parser.parse(df["Date"][0])))
+    head_rss_ts = int(datetime.timestamp(parser.parse(df["Date"][0])))
     
-    if head_ts > last_timestamp :
+    if head_rss_ts > last_timestamp :
         logging.info("New post detected!")
-        last_timestamp = head_ts
+        last_timestamp = head_rss_ts
+        last_message = df["Description"][0].replace("...", "", 1)
         logging.info("New value last_timestamp = "+str(last_timestamp))
         fromVarToDB()
         logging.info("New value stored in the database")
-        return True
-    else:
-        return False
-      
 
-def sendNewPost():
-    logging.info("Sending new post to Channel...")
+        logging.info("Sending new post to Channel...")
+        bot.sendMessage(CHANNEL, last_message)
+        logging.info("... sent!")
     
-    head_ts = int(datetime.timestamp(parser.parse(df["Date"][0])))
-    
-    if head_ts == last_timestamp :
-        bot.sendMessage(CHANNEL, df["Description"][0].replace("...", "", 1))
-        logging.info("... Sent")
+    if not (isinstance(df_scraped, int) and df == -1):
+        head_scraped_ts = int(df_scraped['timestamp'][0])
+        
+        if head_scraped_ts > last_timestamp:
+            logging.info("New post detected!")
+            last_timestamp = head_scraped_ts
+            last_message = df_scraped["text"][0].replace("...", "", 1)
+            logging.info("New value last_timestamp = "+str(last_timestamp))
+            fromVarToDB()
+            logging.info("New value stored in the database")
+            
+            logging.info("Sending new post to Channel...")
+            bot.sendMessage(CHANNEL, last_message)
+            logging.info("... sent!")
 
 
 def start_message(update, context):
@@ -205,13 +234,18 @@ def start_message(update, context):
     update.message.reply_text("Se vuoi fare una piccola donazione, usa il comando /dona")
 
 def last_message(update, context):
-    localdf = initTable()
-    update.message.reply_text(localdf["Description"][0].replace("...", "", 1))
-    del localdf
+    update.message.reply_text(last_message)
 
 def donation_message(update, context):
     donation_msg = "Se il bot ti piace e vuoi supportarmi, puoi fare una donazione tramite PayPal [cliccando qui](%s)\. Grazie\!"%DONATION
     update.message.reply_text(donation_msg, parse_mode="markdown", disable_web_page_preview=True)
+
+def nocmd_message(update, context):
+    update.message.reply_text("Comando non riconosciuto: scegli tra /start , /ultimo e /dona")
+
+def error(update, context):
+    # Log Errors caused by Updates.
+    logging.warning('Update "%s" caused error "%s"', update, context.error)
 
 
 conn = psycopg2.connect(DATABASE_URL, sslmode='require')
@@ -228,6 +262,7 @@ disp = upd.dispatcher
 disp.add_handler(CommandHandler("start", start_message))
 disp.add_handler(CommandHandler("ultimo", last_message))
 disp.add_handler(CommandHandler("dona", donation_message))
+disp.add_handler(MessageHandler(Filters.text, nocmd_message))
 
 upd.start_polling()
 
@@ -235,20 +270,19 @@ upd.start_polling()
 last_timestamp = fromDBToVar()                              # load the timestamp from old epochs
 logging.info("Recovered last timestamp: "+str(last_timestamp))
 
-# Initialize the table
+# Initialize tables
 df = initTable()
-#df_scraper = initScraperTable()
+df_scraped = initScrapedTable()
 while isinstance(df, int) and df==-1:
+    time.sleep(10)
     df = initTable()
 
 logging.info("Table initialized")
-#print(df)
 
 i = 0
 j = 0
 
-if checkIfNewPost() == True:
-    sendNewPost()
+checkAndSendNewPost()
 
 # Loop
 while (True):
@@ -257,17 +291,18 @@ while (True):
         i=0
 
         df = initTable()
+        df_scraped = initScrapedTable()
 
         if isinstance(df, int) and df == -1:
             time.sleep(10)
             continue
 
-        if checkIfNewPost() == True:
-            sendNewPost()
+        checkAndSendNewPost()
 
-        if j==60:
-            j=0
-            logging.info("Bot is active, last timestamp = "+last_timestamp)
+    #check each 1 hour
+    if j==60:
+        j=0
+        logging.info("Bot is active, last timestamp = "+str(last_timestamp))
 
     i+=1
     j+=1
