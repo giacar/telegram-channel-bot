@@ -225,9 +225,9 @@ bot = telegram.Bot(TOKEN)
 upd = Updater(TOKEN, use_context=True)
 disp = upd.dispatcher
 
-disp.add_handler(CommandHandler("/start", start_message))
-disp.add_handler(CommandHandler("/ultimo", last_message))
-disp.add_handler(CommandHandler("/dona", donation_message))
+disp.add_handler(CommandHandler("start", start_message))
+disp.add_handler(CommandHandler("ultimo", last_message))
+disp.add_handler(CommandHandler("dona", donation_message))
 
 upd.start_polling()
 
