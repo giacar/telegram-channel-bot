@@ -264,6 +264,8 @@ disp.add_handler(CommandHandler("ultimo", last_message))
 disp.add_handler(CommandHandler("dona", donation_message))
 disp.add_handler(MessageHandler(Filters.text, nocmd_message))
 
+disp.add_error_handler(error)
+
 upd.start_polling()
 
 #last_timestamp = fromFileToVar()                           # load the timestamp from old epochs
