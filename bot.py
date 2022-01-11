@@ -42,6 +42,9 @@ useCredentials = False
 last_timestamp = 0
 last_message = ""
 
+if not useCredentials:
+    with open("cookies.txt", "w") as file:
+        file.write(str(os.environ.get("COOKIES", None)))
 
 def check_conn():
     global conn     # used to refer to global variable conn
@@ -182,7 +185,7 @@ def initScrapedTable():
             for post in get_posts('ilcomunedicastelmadama', pages=2, credentials=(os.environ.get("FB_EMAIL", None), os.environ.get("FB_PASS", None))):
                 list_data.append([ post["post_id"], post["text"].replace("...", ""), int(datetime.timestamp(post["time"])) ])
         else:
-            for post in get_posts('ilcomunedicastelmadama', pages=2, cookies=StringIO(os.environ.get("COOKIES", None))):
+            for post in get_posts('ilcomunedicastelmadama', pages=2, cookies="cookies.txt"):
                 list_data.append([ post["post_id"], post["text"].replace("...", ""), int(datetime.timestamp(post["time"])) ])
         
         if len(list_data) == 0:
