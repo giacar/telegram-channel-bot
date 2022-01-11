@@ -211,7 +211,7 @@ def checkAndSendNewPost():
         bot.sendMessage(CHANNEL, last_message)
         logging.info("... sent!")
     
-    if not (isinstance(df_scraped, int) and df == -1):
+    if not (isinstance(df_scraped, int) and df_scraped == -1):
         head_scraped_ts = int(df_scraped['timestamp'][0])
         
         if head_scraped_ts > last_timestamp:
