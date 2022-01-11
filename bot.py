@@ -1,4 +1,4 @@
-from facebook_scraper import get_posts
+#from facebook_scraper import get_posts
 import urllib.request
 from urllib.error import URLError, HTTPError
 import time
