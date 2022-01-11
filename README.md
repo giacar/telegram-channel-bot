@@ -1,2 +1,2 @@
-# telegram-channel-bot
+# Telegram Channel Bot
 Bot for Telegram channel management
