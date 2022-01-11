@@ -12,8 +12,8 @@ from datetime import datetime
 from dateutil import parser
 import psycopg2
 
-import telepot
-from telepot.loop import MessageLoop
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filers
+import telegram
 
 from discord_webhook import DiscordWebhook, DiscordEmbed
 
@@ -94,7 +94,7 @@ def fromVarToDB():
     if len(cur.fetchall()) == 0:
         cur.execute("INSERT INTO timestamp(value) VALUES (%s);", (str(last_timestamp),))
     else:
-        cur.execute("UPDATE timestamp SET value = %s;", (str(last_timestamp)))
+        cur.execute("UPDATE timestamp SET value = %s;", (str(last_timestamp),))
 
     conn.commit()
     cur.close()
@@ -166,6 +166,11 @@ def initTable():
 
     return df
 
+def initScraperTable():
+    FILETXT = None
+
+    return None
+
 
 def checkIfNewPost():
     global last_timestamp
@@ -193,24 +198,20 @@ def sendNewPost():
         logging.info("... Sent")
 
 
-def handleMessageBot(msg):
-    chat_id = msg['chat']['id']
-    msg_cont = msg['text'].lower()
-    
-    if msg_cont == '/start' :
-        logging.info("New Chat: " + str(chat_id))
-        bot.sendMessage(chat_id, "Benvenuto! Questo bot è utile per la pubblicazione dei messaggi nel canale.")
-        bot.sendMessage(chat_id, "Se vuoi leggere l'ultimo post pubblicato, usa il comando /ultimo")
-        bot.sendMessage(chat_id, "Se vuoi fare una piccola donazione, usa il comando /dona")
-    
-    if msg_cont == '/ultimo' :
-        localdf = initTable()
-        bot.sendMessage(chat_id, localdf["Description"][0].replace("...", "", 1))
-        del localdf
+def start_message(update, context):
+    logging.info("Command /start from chat_id: " + str(update.message.chat.id))
+    update.message.reply_text("Benvenuto! Questo bot è utile per la pubblicazione dei messaggi nel canale.")
+    update.message.reply_text("Se vuoi leggere l'ultimo post pubblicato, usa il comando /ultimo")
+    update.message.reply_text("Se vuoi fare una piccola donazione, usa il comando /dona")
 
-    if msg_cont == '/dona':
-        donation_msg = "Se il bot ti piace e vuoi supportarmi, puoi fare una donazione tramite PayPal [cliccando qui](%s)\. Grazie\!"%DONATION
-        bot.sendMessage(chat_id, donation_msg, parse_mode="MarkdownV2", disable_web_page_preview=True)
+def last_message(update, context):
+    localdf = initTable()
+    update.message.reply_text(localdf["Description"][0].replace("...", "", 1))
+    del localdf
+
+def donation_message(update, context):
+    donation_msg = "Se il bot ti piace e vuoi supportarmi, puoi fare una donazione tramite PayPal [cliccando qui](%s)\. Grazie\!"%DONATION
+    update.message.reply_text(donation_msg, parse_mode="markdown", disable_web_page_preview=True)
 
 
 conn = psycopg2.connect(DATABASE_URL, sslmode='require')
@@ -220,17 +221,23 @@ signal.signal(signal.SIGINT, handle_stop)
 
 urllib.request.urlopen(RESETBOT)
 
-bot = telepot.Bot(TOKEN)
+bot = telegram.Bot(TOKEN)
+upd = Updater(TOKEN, use_context=True)
+disp = upd.dispatcher
+
+disp.add_handler(CommandHandler("/start", start_message))
+disp.add_handler(CommandHandler("/ultimo", last_message))
+disp.add_handler(CommandHandler("/dona", donation_message))
+
+upd.start_polling()
 
 #last_timestamp = fromFileToVar()                           # load the timestamp from old epochs
 last_timestamp = fromDBToVar()                              # load the timestamp from old epochs
 logging.info("Recovered last timestamp: "+str(last_timestamp))
 
-MessageLoop(bot, handleMessageBot).run_as_thread()
-
-
 # Initialize the table
 df = initTable()
+#df_scraper = initScraperTable()
 while isinstance(df, int) and df==-1:
     df = initTable()
 
@@ -245,8 +252,8 @@ if checkIfNewPost() == True:
 
 # Loop
 while (True):
-    # check each 10 minutes
-    if i==10:
+    # check each 30 minutes
+    if i==30:
         i=0
 
         df = initTable()

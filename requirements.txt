@@ -1,5 +1,5 @@
 pandas
-telepot
+python-telegram-bot
 python-dateutil
 pytz
 psycopg2-binary
