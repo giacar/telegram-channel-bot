@@ -38,14 +38,19 @@ DISCORD_AUTHOR_ICON = "https://i.ibb.co/CtSBXRV/image.jpg"
 webhook = DiscordWebhook(url=DISCORD_URL)
 
 # Initialize value
-useCredentials = False
+useCredentials = False      # FB credential or cookies
+useFBScraping = True        # Enable FB scraping
+useDB = True                # Use DB or local file to store information
+
 last_timestamp = 0
 last_message = ""
 
+# create cookies.txt file using env var value
 if not useCredentials:
     with open("cookies.txt", "w") as file:
         file.write(str(os.environ.get("COOKIES", None)))
 
+# check the connection with the postgres database
 def check_conn():
     global conn     # used to refer to global variable conn
 
@@ -66,26 +71,35 @@ def check_conn():
         logging.info("Database connection is OK")
 
 
+# Signal capture handler
 def handle_stop(sig, frame):
     logging.info("Updating timestamp before to exit...")
     
-    check_conn()
+    if useDB:
+        check_conn()
 
-    cur = conn.cursor()
-    
-    cur.execute("SELECT * FROM timestamp;")
-    if len(cur.fetchall()) == 0:
-        cur.execute("INSERT INTO timestamp(value) VALUES (%s);", (str(last_timestamp),))
+        cur = conn.cursor()
+        
+        cur.execute("SELECT * FROM timestamp;")
+        if len(cur.fetchall()) == 0:
+            cur.execute("INSERT INTO timestamp(value) VALUES (%s);", (str(last_timestamp),))
+        else:
+            cur.execute("UPDATE timestamp SET value = %s;", (str(last_timestamp),))
+
+        conn.commit()
+        
+        cur.close()
+        conn.close()
     else:
-        cur.execute("UPDATE timestamp SET value = %s;", (str(last_timestamp),))
+        with open("last_timestamp.txt", "w") as file:
+            file.write(str(last_timestamp))
 
-    conn.commit()
-    
-    cur.close()
-    conn.close()
+    logging.info("Last timestamp is updated")
 
-    logging.info("Last timestamp is updated, now I can exit safely")
+    upd.stop()
+    logging.info("Stop polling, now I can exit safely")
     
+    # pubblish on my Discord Channel
     reboot_msg = "Il dyno si è riavviato."
     embed = DiscordEmbed(title='♻️♻️♻️ Stato ♻️♻️♻', description=reboot_msg)
     embed.set_author(name='Comune di Castel Madama Bot', url=DISCORD_AUTHOR_URL, icon_url=DISCORD_AUTHOR_ICON)
@@ -95,6 +109,7 @@ def handle_stop(sig, frame):
     sys.exit(0)
 
 
+# export last timestamp in the database
 def fromVarToDB():
     check_conn()
 
@@ -110,6 +125,7 @@ def fromVarToDB():
     cur.close()
 
 
+# import last timestamp from the database
 def fromDBToVar():
     check_conn()
 
@@ -127,11 +143,13 @@ def fromDBToVar():
     return ts
 
 
+# export last timestamp to local file
 def fromVarToFile():
     with open("last_timestamp.txt", "w") as file:
         file.write(str(last_timestamp))
 
 
+# export last timestamp from local file
 def fromFileToVar():
     ts = 0
     
@@ -145,6 +163,7 @@ def fromFileToVar():
     return ts
 
 
+# get the RSS content of the page
 def getRSSPost():
     try:
         response = urllib.request.urlopen(FEEDRSS)
@@ -162,6 +181,7 @@ def getRSSPost():
         return -1
 
 
+# build the table based on RSS information
 def initTable():
     FILECSV = None
 
@@ -177,16 +197,27 @@ def initTable():
     return df
 
 
+# build the table based on Facebook scraping information
 def initScrapedTable():
+    if not useFBScraping:
+        return -1
+    
     list_data = []
 
     try:
         if useCredentials:
-            for post in get_posts('ilcomunedicastelmadama', pages=2, credentials=(os.environ.get("FB_EMAIL", None), os.environ.get("FB_PASS", None))):
-                list_data.append([ post["post_id"], post["text"].replace("...", ""), int(datetime.timestamp(post["time"])) ])
+            posts = get_posts('ilcomunedicastelmadama', pages=2, credentials=(os.environ.get("FB_EMAIL", None), os.environ.get("FB_PASS", None)))
         else:
-            for post in get_posts('ilcomunedicastelmadama', pages=2, cookies="cookies.txt"):
-                list_data.append([ post["post_id"], post["text"].replace("...", ""), int(datetime.timestamp(post["time"])) ])
+            posts = get_posts('ilcomunedicastelmadama', pages=2, cookies="cookies.txt")
+
+        for post in posts:
+            if post["text"] != None and post["time"] != None:
+                if post["post_id"] == None:
+                    post_id = ""
+                else:
+                    post_id = post["post_id"]
+                
+                list_data.append([ post_id, post["text"].replace("...", ""), int(datetime.timestamp(post["time"])) ])
         
         if len(list_data) == 0:
             return -1
@@ -202,6 +233,7 @@ def initScrapedTable():
         return -1
 
 
+# check and send new post found RSS and/or FB scraping 
 def checkAndSendNewPost():
     global last_timestamp
     
@@ -212,14 +244,18 @@ def checkAndSendNewPost():
         last_timestamp = head_rss_ts
         last_message = df["Description"][0].replace("...", "", 1)
         logging.info("New value last_timestamp = "+str(last_timestamp))
-        fromVarToDB()
-        logging.info("New value stored in the database")
+        if useDB:
+            fromVarToDB()
+            logging.info("New value stored in the database")
+        else:
+            fromVarToFile()
+            logging.info("New value stored in the local file")
 
         logging.info("Sending new post to Channel...")
         bot.sendMessage(CHANNEL, last_message)
         logging.info("... sent!")
     
-    if not (isinstance(df_scraped, int) and df_scraped == -1):
+    if useFBScraping and (not (isinstance(df_scraped, int) and df_scraped == -1)):
         head_scraped_ts = int(df_scraped['timestamp'][0])
         
         if head_scraped_ts > last_timestamp:
@@ -227,14 +263,19 @@ def checkAndSendNewPost():
             last_timestamp = head_scraped_ts
             last_message = df_scraped["text"][0].replace("...", "", 1)
             logging.info("New value last_timestamp = "+str(last_timestamp))
-            fromVarToDB()
-            logging.info("New value stored in the database")
+            if useDB:
+                fromVarToDB()
+                logging.info("New value stored in the database")
+            else:
+                fromVarToFile()
+                logging.info("New value stored in the local file")
             
             logging.info("Sending new post to Channel...")
             bot.sendMessage(CHANNEL, last_message)
             logging.info("... sent!")
 
 
+# some handling message functions for the different bot commands
 def start_message(update, context):
     logging.info("Command /start from chat_id: " + str(update.message.chat.id))
     update.message.reply_text("Benvenuto! Questo bot è utile per la pubblicazione dei messaggi nel canale.")
@@ -246,7 +287,7 @@ def last_message(update, context):
 
 def donation_message(update, context):
     donation_msg = "Se il bot ti piace e vuoi supportarmi, puoi fare una donazione tramite PayPal [cliccando qui](%s)\. Grazie\!"%DONATION
-    update.message.reply_text(donation_msg, parse_mode="markdown", disable_web_page_preview=True)
+    update.message.reply_text(donation_msg, parse_mode="MARKDOWN_V2", disable_web_page_preview=True)
 
 def nocmd_message(update, context):
     update.message.reply_text("Comando non riconosciuto: scegli tra /start , /ultimo e /dona")
@@ -256,7 +297,8 @@ def error(update, context):
     logging.warning('Update "%s" caused error "%s"', update, context.error)
 
 
-conn = psycopg2.connect(DATABASE_URL, sslmode='require')
+if useDB:
+    conn = psycopg2.connect(DATABASE_URL, sslmode='require')
 
 signal.signal(signal.SIGTERM, handle_stop)
 signal.signal(signal.SIGINT, handle_stop)
@@ -276,8 +318,10 @@ disp.add_error_handler(error)
 
 upd.start_polling()
 
-#last_timestamp = fromFileToVar()                           # load the timestamp from old epochs
-last_timestamp = fromDBToVar()                              # load the timestamp from old epochs
+if useDB:
+    last_timestamp = fromDBToVar()                          # load the timestamp from old epochs
+else:
+    last_timestamp = fromFileToVar()                        # load the timestamp from old epochs
 logging.info("Recovered last timestamp: "+str(last_timestamp))
 
 # Initialize tables
