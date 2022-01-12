@@ -22,6 +22,9 @@ from discord_webhook import DiscordWebhook, DiscordEmbed
 
 logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)s [%(funcName)s] %(message)s', datefmt='%Y-%m-%d,%H:%M:%S', level=logging.INFO)
 logging.getLogger("facebook_scrapper").setLevel(logging.ERROR)
+list_module = ["1855560011294106", "1851449055038535", "1854403658076408", "1853766861473421", "1852702961579811", "1851690341681073"]
+for mod in list_module:
+    logging.getLogger(mod).setLevel(logging.ERROR)
 
 FEEDRSS = os.environ.get("FEED_RSS", None)
 
