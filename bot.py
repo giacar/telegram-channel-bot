@@ -243,36 +243,26 @@ def checkAndSendNewPost():
         logging.info("New post detected!")
         last_timestamp = head_rss_ts
         last_message = df["Description"][0].replace("...", "", 1)
-        logging.info("New value last_timestamp = "+str(last_timestamp))
-        if useDB:
-            fromVarToDB()
-            logging.info("New value stored in the database")
-        else:
-            fromVarToFile()
-            logging.info("New value stored in the local file")
-
-        logging.info("Sending new post to Channel...")
-        bot.sendMessage(CHANNEL, last_message)
-        logging.info("... sent!")
     
     if useFBScraping and (not (isinstance(df_scraped, int) and df_scraped == -1)):
-        head_scraped_ts = int(df_scraped['timestamp'][0])
+        head_scraped_ts = int(df_scraped["timestamp"][0])
         
         if head_scraped_ts > last_timestamp:
             logging.info("New post detected!")
             last_timestamp = head_scraped_ts
             last_message = df_scraped["text"][0].replace("...", "", 1)
-            logging.info("New value last_timestamp = "+str(last_timestamp))
-            if useDB:
-                fromVarToDB()
-                logging.info("New value stored in the database")
-            else:
-                fromVarToFile()
-                logging.info("New value stored in the local file")
-            
-            logging.info("Sending new post to Channel...")
-            bot.sendMessage(CHANNEL, last_message)
-            logging.info("... sent!")
+    
+    logging.info("New value last_timestamp = "+str(last_timestamp))
+    if useDB:
+        fromVarToDB()
+        logging.info("New value stored in the database")
+    else:
+        fromVarToFile()
+        logging.info("New value stored in the local file")
+    
+    logging.info("Sending new post to Channel...")
+    bot.sendMessage(CHANNEL, last_message)
+    logging.info("... sent!")
 
 
 # some handling message functions for the different bot commands
@@ -282,7 +272,7 @@ def start_message(update, context):
     update.message.reply_text("Se vuoi leggere l'ultimo post pubblicato, usa il comando /ultimo")
     update.message.reply_text("Se vuoi fare una piccola donazione, usa il comando /dona")
 
-def last_message(update, context):
+def last_post_message(update, context):
     update.message.reply_text(last_message)
 
 def donation_message(update, context):
@@ -310,7 +300,7 @@ upd = Updater(TOKEN, use_context=True)
 disp = upd.dispatcher
 
 disp.add_handler(CommandHandler("start", start_message))
-disp.add_handler(CommandHandler("ultimo", last_message))
+disp.add_handler(CommandHandler("ultimo", last_post_message))
 disp.add_handler(CommandHandler("dona", donation_message))
 disp.add_handler(MessageHandler(Filters.text, nocmd_message))
 
