@@ -60,7 +60,7 @@ def check_conn():
     
     try:
         cur = conn.cursor()
-        cur.execute("SELECT * FROM timestamp;")
+        cur.execute("SELECT * FROM state;")
         cur.close()
     except psycopg2.OperationalError:
         logging.error("Problem with database connection, open another one")
@@ -73,28 +73,28 @@ def check_conn():
 
 # Signal capture handler
 def handle_stop(sig, frame):
-    logging.info("Updating timestamp before to exit...")
+    logging.info("Updating state before to exit...")
     
     if useDB:
         check_conn()
 
         cur = conn.cursor()
         
-        cur.execute("SELECT * FROM timestamp;")
+        cur.execute("SELECT * FROM state;")
         if len(cur.fetchall()) == 0:
-            cur.execute("INSERT INTO timestamp(value) VALUES (%s);", (str(last_timestamp),))
+            cur.execute("INSERT INTO state VALUES (%s,%s);", (str(last_timestamp),str(last_message)))
         else:
-            cur.execute("UPDATE timestamp SET value = %s;", (str(last_timestamp),))
+            cur.execute("UPDATE state SET ts = %s, msg = %s;", (str(last_timestamp),str(last_message)))
 
         conn.commit()
         
         cur.close()
         conn.close()
     else:
-        with open("last_timestamp.txt", "w") as file:
-            file.write(str(last_timestamp))
+        with open("last_state.txt", "w") as file:
+            file.write(str(last_timestamp)+'\n'+str(last_message))
 
-    logging.info("Last timestamp is updated")
+    logging.info("Last state is updated")
 
     upd.stop()
     logging.info("Stop polling, now I can exit safely")
@@ -109,58 +109,61 @@ def handle_stop(sig, frame):
     sys.exit(0)
 
 
-# export last timestamp in the database
+# export last state in the database
 def fromVarToDB():
     check_conn()
 
     cur = conn.cursor()
     
-    cur.execute("SELECT * FROM timestamp;")
+    cur.execute("SELECT * FROM state;")
     if len(cur.fetchall()) == 0:
-        cur.execute("INSERT INTO timestamp(value) VALUES (%s);", (str(last_timestamp),))
+        cur.execute("INSERT INTO state VALUES (%s,%s);", (str(last_timestamp),str(last_message)))
     else:
-        cur.execute("UPDATE timestamp SET value = %s;", (str(last_timestamp),))
+        cur.execute("UPDATE state SET ts = %s, msg = %s;", (str(last_timestamp),str(last_message)))
 
     conn.commit()
     cur.close()
 
 
-# import last timestamp from the database
+# import last state from the database
 def fromDBToVar():
     check_conn()
 
     cur = conn.cursor()
     
-    cur.execute("SELECT * FROM timestamp;")
-    list_value = cur.fetchall()
+    cur.execute("SELECT * FROM state;")
+    rows = cur.fetchall()
 
     ts = 0
+    lm = ""
 
-    for value in list_value:
-        ts = int(value[0])
+    for row in rows:
+        ts = int(row[0])
+        lm = str(row[1])
 
     cur.close()
-    return ts
+    return ts, lm
 
 
-# export last timestamp to local file
+# export last state to local file
 def fromVarToFile():
-    with open("last_timestamp.txt", "w") as file:
-        file.write(str(last_timestamp))
+    with open("last_state.txt", "w") as file:
+        file.write(str(last_timestamp)+'\n'+str(last_message))
 
 
-# export last timestamp from local file
+# export last state from local file
 def fromFileToVar():
     ts = 0
     
     try:
-        with open("last_timestamp.txt", "r") as file:
+        with open("last_state.txt", "r") as file:
             ts = int(file.readline().strip())
+            msg = str(file.readline().strip())
     
     except FileNotFoundError:
         pass
     
-    return ts
+    return ts, msg
 
 
 # get the RSS content of the page
@@ -261,10 +264,10 @@ def checkAndSendNewPost():
         logging.info("New value last_timestamp = "+str(last_timestamp))
         if useDB:
             fromVarToDB()
-            logging.info("New value stored in the database")
+            logging.info("New state stored in the database")
         else:
             fromVarToFile()
-            logging.info("New value stored in the local file")
+            logging.info("New state stored in the local file")
         
         logging.info("Sending new post to Channel...")
         bot.sendMessage(CHANNEL, last_message)
@@ -339,10 +342,10 @@ disp.add_error_handler(error)
 upd.start_polling()
 
 if useDB:
-    last_timestamp = fromDBToVar()                          # load the timestamp from old epochs
+    last_timestamp, last_message = fromDBToVar()            # load the timestamp from old epochs
 else:
-    last_timestamp = fromFileToVar()                        # load the timestamp from old epochs
-logging.info("Recovered last timestamp: "+str(last_timestamp))
+    last_timestamp, last_message = fromFileToVar()          # load the timestamp from old epochs
+logging.info("Recovered last state, last timestamp: "+str(last_timestamp))
 
 # Initialize tables
 df = initTable()
