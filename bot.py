@@ -271,6 +271,23 @@ def checkAndSendNewPost():
         logging.info("... sent!")
 
 
+# retrieve last message if var is empty
+def retrieveLastMessage():
+    global last_timestamp
+    global last_message
+    
+    head_rss_ts = int(datetime.timestamp(parser.parse(df["Date"][0])))
+    
+    if head_rss_ts == last_timestamp :
+        last_message = df["Description"][0].replace("...", "", 1)
+    
+    if useFBScraping and (not (isinstance(df_scraped, int) and df_scraped == -1)):
+        head_scraped_ts = int(df_scraped["timestamp"][0])
+        
+        if head_scraped_ts == last_timestamp:
+            last_message = df_scraped["text"][0].replace("...", "", 1)
+
+
 # some handling message functions for the different bot commands
 def start_message(update, context):
     logging.info("Command /start from chat_id: " + str(update.message.chat.id))
@@ -279,7 +296,14 @@ def start_message(update, context):
     update.message.reply_text("Se vuoi fare una piccola donazione, usa il comando /dona")
 
 def last_post_message(update, context):
-    update.message.reply_text(last_message)
+    if last_message != "":
+        update.message.reply_text(last_message)
+    else:
+        retrieveLastMessage()
+        if last_message == "":
+            update.message.reply_text("Mi dispiace ma l'ultimo post al momento non è disponibile. Riprova più tardi.")
+        else:
+            update.message.reply_text(last_message)
 
 def donation_message(update, context):
     donation_msg = "Se il bot ti piace e vuoi supportarmi, puoi fare una donazione tramite PayPal [cliccando qui](%s)\. Grazie\!"%DONATION
