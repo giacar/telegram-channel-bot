@@ -237,6 +237,8 @@ def initScrapedTable():
 def checkAndSendNewPost():
     global last_timestamp
     global last_message
+
+    isNewPost = False
     
     head_rss_ts = int(datetime.timestamp(parser.parse(df["Date"][0])))
     
@@ -244,6 +246,7 @@ def checkAndSendNewPost():
         logging.info("New post detected!")
         last_timestamp = head_rss_ts
         last_message = df["Description"][0].replace("...", "", 1)
+        isNewPost = True
     
     if useFBScraping and (not (isinstance(df_scraped, int) and df_scraped == -1)):
         head_scraped_ts = int(df_scraped["timestamp"][0])
@@ -252,18 +255,20 @@ def checkAndSendNewPost():
             logging.info("New post detected!")
             last_timestamp = head_scraped_ts
             last_message = df_scraped["text"][0].replace("...", "", 1)
+            isNewPost = True
     
-    logging.info("New value last_timestamp = "+str(last_timestamp))
-    if useDB:
-        fromVarToDB()
-        logging.info("New value stored in the database")
-    else:
-        fromVarToFile()
-        logging.info("New value stored in the local file")
-    
-    logging.info("Sending new post to Channel...")
-    bot.sendMessage(CHANNEL, last_message)
-    logging.info("... sent!")
+    if isNewPost:
+        logging.info("New value last_timestamp = "+str(last_timestamp))
+        if useDB:
+            fromVarToDB()
+            logging.info("New value stored in the database")
+        else:
+            fromVarToFile()
+            logging.info("New value stored in the local file")
+        
+        logging.info("Sending new post to Channel...")
+        bot.sendMessage(CHANNEL, last_message)
+        logging.info("... sent!")
 
 
 # some handling message functions for the different bot commands
