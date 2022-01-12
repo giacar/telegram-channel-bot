@@ -13,6 +13,7 @@ import signal
 from datetime import datetime
 from dateutil import parser
 import psycopg2
+import hashlib
 
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 import telegram
@@ -20,7 +21,7 @@ import telegram
 from discord_webhook import DiscordWebhook, DiscordEmbed
 
 logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)s [%(funcName)s] %(message)s', datefmt='%Y-%m-%d,%H:%M:%S', level=logging.INFO)
-
+logging.getLogger("facebook_scrapper").setLevel(logging.ERROR)
 
 FEEDRSS = os.environ.get("FEED_RSS", None)
 
@@ -28,7 +29,7 @@ DONATION = os.environ.get("DONATION", None)
 
 TOKEN = os.environ.get("TOKEN_BOT", None)
 CHANNEL = os.environ.get("CHANNEL_ID", None)
-RESETBOT = "https://api.telegram.org/bot"+TOKEN+"/setWebhook?url="
+RESETBOT = "https://api.telegram.org/bot"+str(TOKEN)+"/setWebhook?url="
 DATABASE_URL = os.environ.get("DATABASE_URL", None)
 
 DISCORD_URL = os.environ.get("DISCORD_URL", None)
@@ -44,6 +45,7 @@ useDB = True                # Use DB or local file to store information
 
 last_timestamp = 0
 last_message = ""
+last_md5 = ""
 
 # create cookies.txt file using env var value
 if not useCredentials:
@@ -70,6 +72,13 @@ def check_conn():
     else:
         logging.info("Database connection is OK")
 
+# compute md5 fingerprint of an input string
+def compute_md5(input):
+    return hashlib.md5(input.encode()).hexdigest()
+
+# clean message from ... used by Facebook
+def clean_msg(input):
+    return input.replace("...", "", 1)
 
 # Signal capture handler
 def handle_stop(sig, frame):
@@ -240,6 +249,7 @@ def initScrapedTable():
 def checkAndSendNewPost():
     global last_timestamp
     global last_message
+    global last_md5
 
     isNewPost = False
     
@@ -248,8 +258,12 @@ def checkAndSendNewPost():
     if head_rss_ts > last_timestamp :
         logging.info("New post detected!")
         last_timestamp = head_rss_ts
-        last_message = df["Description"][0].replace("...", "", 1)
-        isNewPost = True
+        detected_msg = clean_msg(df["Description"][0])
+        detected_md5 = compute_md5(detected_msg)
+        if last_md5 != detected_md5:
+            last_message = detected_msg
+            last_md5 = last_md5
+            isNewPost = True
     
     if useFBScraping and (not (isinstance(df_scraped, int) and df_scraped == -1)):
         head_scraped_ts = int(df_scraped["timestamp"][0])
@@ -257,8 +271,12 @@ def checkAndSendNewPost():
         if head_scraped_ts > last_timestamp:
             logging.info("New post detected!")
             last_timestamp = head_scraped_ts
-            last_message = df_scraped["text"][0].replace("...", "", 1)
-            isNewPost = True
+            detected_msg = clean_msg(df_scraped["text"][0])
+            detected_md5 = compute_md5(detected_msg)
+            if last_md5 != detected_md5:
+                last_message = detected_msg
+                last_md5 = last_md5
+                isNewPost = True
     
     if isNewPost:
         logging.info("New value last_timestamp = "+str(last_timestamp))
@@ -343,8 +361,10 @@ upd.start_polling()
 
 if useDB:
     last_timestamp, last_message = fromDBToVar()            # load the timestamp from old epochs
+    last_md5 = compute_md5(last_message)
 else:
     last_timestamp, last_message = fromFileToVar()          # load the timestamp from old epochs
+    last_md5 = compute_md5(last_message)
 logging.info("Recovered last state, last timestamp: "+str(last_timestamp))
 
 # Initialize tables
