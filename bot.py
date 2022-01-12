@@ -236,6 +236,7 @@ def initScrapedTable():
 # check and send new post found RSS and/or FB scraping 
 def checkAndSendNewPost():
     global last_timestamp
+    global last_message
     
     head_rss_ts = int(datetime.timestamp(parser.parse(df["Date"][0])))
     
