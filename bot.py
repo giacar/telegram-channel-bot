@@ -6,6 +6,7 @@ import time
 import sys
 import os
 from io import StringIO, BytesIO
+import facebook_scraper
 import pandas as pd
 import logging
 import traceback
@@ -25,6 +26,7 @@ logging.getLogger("facebook_scrapper").setLevel(logging.ERROR)
 list_module = ["1855560011294106", "1851449055038535", "1854403658076408", "1853766861473421", "1852702961579811", "1851690341681073"]
 for mod in list_module:
     logging.getLogger(mod).setLevel(logging.ERROR)
+facebook_scraper.enable_logging(logging.ERROR)
 
 FEEDRSS = os.environ.get("FEED_RSS", None)
 
