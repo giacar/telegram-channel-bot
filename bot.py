@@ -333,7 +333,7 @@ def last_post_message(update, context):
 
 def donation_message(update, context):
     donation_msg = "Se il bot ti piace e vuoi supportarmi, puoi fare una donazione tramite PayPal [cliccando qui](%s)\. Grazie\!"%DONATION
-    update.message.reply_text(donation_msg, parse_mode="MARKDOWN_V2", disable_web_page_preview=True)
+    update.message.reply_text(donation_msg, parse_mode="MarkdownV2", disable_web_page_preview=True)
 
 def nocmd_message(update, context):
     update.message.reply_text("Comando non riconosciuto: scegli tra /start , /ultimo e /dona")
