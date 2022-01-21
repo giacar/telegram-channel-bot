@@ -257,10 +257,12 @@ def checkAndSendNewPost():
     global last_md5
 
     isNewPost = False
+    isNeverSend = False
     
     head_rss_ts = int(datetime.timestamp(parser.parse(df["Date"][0])))
     
     if head_rss_ts > last_timestamp :
+        isNewPost = True
         logging.info("New post detected!")
         last_timestamp = head_rss_ts
         detected_msg = clean_msg(df["Description"][0])
@@ -268,12 +270,13 @@ def checkAndSendNewPost():
         if last_md5 != detected_md5:
             last_message = detected_msg
             last_md5 = last_md5
-            isNewPost = True
+            isNeverSend = True          
     
     if useFBScraping and (not (isinstance(df_scraped, int) and df_scraped == -1)):
         head_scraped_ts = int(df_scraped["timestamp"][0])
         
         if head_scraped_ts > last_timestamp:
+            isNewPost = True
             logging.info("New post detected!")
             last_timestamp = head_scraped_ts
             detected_msg = clean_msg(df_scraped["text"][0])
@@ -281,7 +284,7 @@ def checkAndSendNewPost():
             if last_md5 != detected_md5:
                 last_message = detected_msg
                 last_md5 = last_md5
-                isNewPost = True
+                isNeverSend = True
     
     if isNewPost:
         logging.info("New value last_timestamp = "+str(last_timestamp))
@@ -292,12 +295,13 @@ def checkAndSendNewPost():
             fromVarToFile()
             logging.info("New state stored in the local file")
         
-        logging.info("Sending new post to Channel...")
-        if last_message == "" :
-            logging.info("... empty message, not sent!")
-        else:
-            bot.sendMessage(CHANNEL, last_message)
-            logging.info("... sent!")
+        if isNeverSend:
+            logging.info("Sending new post to Channel...")
+            if last_message == "" :
+                logging.info("... empty message, not sent!")
+            else:
+                bot.sendMessage(CHANNEL, last_message)
+                logging.info("... sent!")
     else:
         logging.info("Duplicated post, ignored")
 
