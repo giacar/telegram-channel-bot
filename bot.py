@@ -293,8 +293,11 @@ def checkAndSendNewPost():
             logging.info("New state stored in the local file")
         
         logging.info("Sending new post to Channel...")
-        bot.sendMessage(CHANNEL, last_message)
-        logging.info("... sent!")
+        if last_message == "" :
+            logging.info("... empty message, not sent!")
+        else:
+            bot.sendMessage(CHANNEL, last_message)
+            logging.info("... sent!")
 
 
 # retrieve last message if var is empty
@@ -332,7 +335,7 @@ def last_post_message(update, context):
             update.message.reply_text(last_message)
 
 def donation_message(update, context):
-    donation_msg = "Se il bot ti piace e vuoi supportarmi, puoi fare una donazione tramite PayPal [cliccando qui](%s)\. *Grazie*\!"%str(DONATION)
+    donation_msg = "Se il bot ti piace e vuoi supportarmi, puoi fare una donazione tramite PayPal [cliccando qui](%s)\. *Grazie\!*"%str(DONATION)
     update.message.reply_text(donation_msg, parse_mode="MarkdownV2", disable_web_page_preview=True)
 
 def nocmd_message(update, context):
