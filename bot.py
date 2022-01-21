@@ -298,6 +298,8 @@ def checkAndSendNewPost():
         else:
             bot.sendMessage(CHANNEL, last_message)
             logging.info("... sent!")
+    else:
+        logging.info("Duplicated post, ignored")
 
 
 # retrieve last message if var is empty
