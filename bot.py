@@ -22,10 +22,8 @@ import telegram
 from discord_webhook import DiscordWebhook, DiscordEmbed
 
 logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)s [%(funcName)s] %(message)s', datefmt='%Y-%m-%d,%H:%M:%S', level=logging.INFO)
+
 logging.getLogger("facebook_scrapper").setLevel(logging.ERROR)
-list_module = ["1855560011294106", "1851449055038535", "1854403658076408", "1853766861473421", "1852702961579811", "1851690341681073"]
-for mod in list_module:
-    logging.getLogger(mod).setLevel(logging.ERROR)
 facebook_scraper.enable_logging(logging.ERROR)
 
 FEEDRSS = os.environ.get("FEED_RSS", None)
@@ -44,18 +42,15 @@ DISCORD_AUTHOR_ICON = "https://i.ibb.co/CtSBXRV/image.jpg"
 webhook = DiscordWebhook(url=DISCORD_URL)
 
 # Initialize value
-useCredentials = False      # FB credential or cookies
-useFBScraping = True        # Enable FB scraping
-useDB = True                # Use DB or local file to store information
+useCredentials = False      # FB credential (True) or cookies (False)
+useFBScraping = True        # Enable FB scraping (facebook-scraper module)
+useDB = True                # Use DB (True) or local file (False) to store state
 
+# State vars
 last_timestamp = 0
 last_message = ""
 last_md5 = ""
 
-# create cookies.txt file using env var value
-if not useCredentials:
-    with open("cookies.txt", "w") as file:
-        file.write(str(os.environ.get("COOKIES", None)))
 
 # check the connection with the postgres database
 def check_conn():
@@ -77,13 +72,16 @@ def check_conn():
     else:
         logging.info("Database connection is OK")
 
+
 # compute md5 fingerprint of an input string
 def compute_md5(input):
     return hashlib.md5(input.encode()).hexdigest()
 
+
 # clean message from ... used by Facebook
 def clean_msg(input):
     return input.replace("...", "", 1)
+
 
 # Signal capture handler
 def handle_stop(sig, frame):
@@ -114,8 +112,8 @@ def handle_stop(sig, frame):
     logging.info("Stop polling, now I can exit safely")
     
     # pubblish on my Discord Channel
-    reboot_msg = "Il dyno si è riavviato."
-    embed = DiscordEmbed(title='♻️♻️♻️ Stato ♻️♻️♻', description=reboot_msg)
+    reboot_msg = "Il dyno si è fermato."
+    embed = DiscordEmbed(title='🔴️ Stato 🔴️', description=reboot_msg)
     embed.set_author(name='Comune di Castel Madama Bot', url=DISCORD_AUTHOR_URL, icon_url=DISCORD_AUTHOR_ICON)
     webhook.add_embed(embed)
     webhook.execute()
@@ -203,7 +201,7 @@ def initTable():
     FILECSV = None
 
     s = getRSSPost()
-    if s.isdigit():
+    if isinstance(s, int) and s == -1:
         logging.warn("Not possible to GET Data")
         return -1
     else:
@@ -259,8 +257,8 @@ def checkAndSendNewPost():
     isNewPost = False
     isNeverSend = False
     
+    # check last RSS post
     head_rss_ts = int(datetime.timestamp(parser.parse(df["Date"][0])))
-    
     if head_rss_ts > last_timestamp :
         isNewPost = True
         logging.info("New post detected!")
@@ -268,10 +266,12 @@ def checkAndSendNewPost():
         detected_msg = clean_msg(df["Description"][0])
         detected_md5 = compute_md5(detected_msg)
         if last_md5 != detected_md5:
+            # update state
             last_message = detected_msg
-            last_md5 = last_md5
+            last_md5 = detected_md5
             isNeverSend = True          
     
+    # check last scraped post 
     if useFBScraping and (not (isinstance(df_scraped, int) and df_scraped == -1)):
         head_scraped_ts = int(df_scraped["timestamp"][0])
         
@@ -282,8 +282,9 @@ def checkAndSendNewPost():
             detected_msg = clean_msg(df_scraped["text"][0])
             detected_md5 = compute_md5(detected_msg)
             if last_md5 != detected_md5:
+                # update state
                 last_message = detected_msg
-                last_md5 = last_md5
+                last_md5 = detected_md5
                 isNeverSend = True
     
     if isNewPost:
@@ -314,13 +315,13 @@ def retrieveLastMessage():
     head_rss_ts = int(datetime.timestamp(parser.parse(df["Date"][0])))
     
     if head_rss_ts == last_timestamp :
-        last_message = df["Description"][0].replace("...", "", 1)
+        last_message = clean_msg(df["Description"][0])
     
     if useFBScraping and (not (isinstance(df_scraped, int) and df_scraped == -1)):
         head_scraped_ts = int(df_scraped["timestamp"][0])
         
         if head_scraped_ts == last_timestamp:
-            last_message = df_scraped["text"][0].replace("...", "", 1)
+            last_message = clean_msg(df_scraped["text"][0])
 
 
 # some handling message functions for the different bot commands
@@ -352,70 +353,97 @@ def error(update, context):
     logging.warning('Update "%s" caused error "%s"', update, context.error)
 
 
-if useDB:
-    conn = psycopg2.connect(DATABASE_URL, sslmode='require')
+def main():
+    # global vars
+    global conn
+    global bot
+    global upd
+    global disp
+    global last_timestamp
+    global last_message
+    global last_md5
+    global df
+    global df_scraped
 
-signal.signal(signal.SIGTERM, handle_stop)
-signal.signal(signal.SIGINT, handle_stop)
+    # pubblish on my Discord Channel
+    reboot_msg = "Il dyno si è avviato."
+    embed = DiscordEmbed(title='✅️ Stato ✅️', description=reboot_msg)
+    embed.set_author(name='Comune di Castel Madama Bot', url=DISCORD_AUTHOR_URL, icon_url=DISCORD_AUTHOR_ICON)
+    webhook.add_embed(embed)
+    webhook.execute()
 
-urllib.request.urlopen(RESETBOT)
+    # create cookies.txt file using env var value
+    if not useCredentials:
+        with open("cookies.txt", "w") as file:
+            file.write(str(os.environ.get("COOKIES", None)))
 
-bot = telegram.Bot(TOKEN)
-upd = Updater(TOKEN, use_context=True)
-disp = upd.dispatcher
+    if useDB:
+        conn = psycopg2.connect(DATABASE_URL, sslmode='require')
 
-disp.add_handler(CommandHandler("start", start_message))
-disp.add_handler(CommandHandler("ultimo", last_post_message))
-disp.add_handler(CommandHandler("dona", donation_message))
-disp.add_handler(MessageHandler(Filters.text, nocmd_message))
+    signal.signal(signal.SIGTERM, handle_stop)
+    signal.signal(signal.SIGINT, handle_stop)
 
-disp.add_error_handler(error)
+    urllib.request.urlopen(RESETBOT)
 
-upd.start_polling()
+    bot = telegram.Bot(TOKEN)
+    upd = Updater(TOKEN, use_context=True)
+    disp = upd.dispatcher
 
-if useDB:
-    last_timestamp, last_message = fromDBToVar()            # load the timestamp from old epochs
-    last_md5 = compute_md5(last_message)
-else:
-    last_timestamp, last_message = fromFileToVar()          # load the timestamp from old epochs
-    last_md5 = compute_md5(last_message)
-logging.info("Recovered last state, last timestamp: "+str(last_timestamp))
+    disp.add_handler(CommandHandler("start", start_message))
+    disp.add_handler(CommandHandler("ultimo", last_post_message))
+    disp.add_handler(CommandHandler("dona", donation_message))
+    disp.add_handler(MessageHandler(Filters.text, nocmd_message))
 
-# Initialize tables
-df = initTable()
-df_scraped = initScrapedTable()
-while isinstance(df, int) and df==-1:
-    time.sleep(10)
+    disp.add_error_handler(error)
+
+    upd.start_polling()
+
+    if useDB:
+        last_timestamp, last_message = fromDBToVar()            # load the timestamp from old epochs
+        last_md5 = compute_md5(last_message)
+    else:
+        last_timestamp, last_message = fromFileToVar()          # load the timestamp from old epochs
+        last_md5 = compute_md5(last_message)
+    logging.info("Recovered last state, last timestamp: "+str(last_timestamp))
+
+    # Initialize tables
     df = initTable()
-
-logging.info("Table initialized")
-
-i = 0
-j = 0
-
-checkAndSendNewPost()
-
-# Loop
-while (True):
-    # check each 30 minutes
-    if i==30:
-        i=0
-
+    df_scraped = initScrapedTable()
+    while isinstance(df, int) and df==-1:
+        time.sleep(10)
         df = initTable()
-        df_scraped = initScrapedTable()
 
-        if isinstance(df, int) and df == -1:
-            time.sleep(10)
-            continue
+    logging.info("Table initialized")
 
-        checkAndSendNewPost()
+    i = 0
+    j = 0
 
-    #check each 1 hour
-    if j==60:
-        j=0
-        logging.info("Bot is active, last timestamp = "+str(last_timestamp))
+    checkAndSendNewPost()
 
-    i+=1
-    j+=1
-    time.sleep(60)
+    # Loop
+    while (True):
+        # check each 30 minutes
+        if i==30:
+            i=0
 
+            df = initTable()
+            df_scraped = initScrapedTable()
+
+            if isinstance(df, int) and df == -1:
+                time.sleep(10)
+                continue
+
+            checkAndSendNewPost()
+
+        #check each 1 hour
+        if j==60:
+            j=0
+            logging.info("Bot is active, last timestamp = "+str(last_timestamp))
+
+        i+=1
+        j+=1
+        time.sleep(60)
+
+
+if __name__ == "__main__":
+    main()
