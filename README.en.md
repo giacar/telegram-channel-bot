@@ -1,6 +1,6 @@
 # Facebook Page Scaper Bot
-[![it](https://img.shields.io/badge/lang-it-green.svg)](https://github.com/giacar/terremoti-vicovaro-bot/blob/main/README.md)
-[![en](https://img.shields.io/badge/lang-en-red.svg)](https://github.com/giacar/terremoti-vicovaro-bot/blob/main/README.en.md)
+[![it](https://img.shields.io/badge/lang-it-green.svg)](https://github.com/giacar/telegram-channel-bot/blob/main/README.md)
+[![en](https://img.shields.io/badge/lang-en-red.svg)](https://github.com/giacar/telegram-channel-bot/blob/main/README.en.md)
 
 Facebook Page Scaper Bot is a Telegram bot that allows to scrape and pubblish last posts of a specific Facebook page in a Telegram channel. In order to get them, it exploits both [RSS.app](https://www.rss.app) service and a [PIP](https://pypi.org/project/facebook-scraper) library. It's recommended to use Facebook account login cookies (otherwise Facebook can block it) when PIP library is used. Moreover it allows to interact with itself in order to get the last pubblished post.
 
@@ -14,7 +14,8 @@ The bot allows you to take advantage of the following features:
 * Possibility to customize the scraping choosing between RSS service, PIP library or both of them. 
 
 ## To Do
-* Integrate photos into posts and support photo-only posts.
+* Integrate photos into posts and support photo-only posts.\
+\
 For other suggestions and reports you can open an issue from [here](https://github.com/giacar/telegram-channel-bot/issues).
 
 # Known Bugs
