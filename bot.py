@@ -116,7 +116,7 @@ def handle_stop(sig, frame):
     embed = DiscordEmbed(title='🔴️ Stato 🔴️', description=reboot_msg)
     embed.set_author(name='Comune di Castel Madama Bot', url=DISCORD_AUTHOR_URL, icon_url=DISCORD_AUTHOR_ICON)
     webhook.add_embed(embed)
-    webhook.execute()
+    webhook.execute(remove_embeds=True)
 
     sys.exit(0)
 
@@ -370,7 +370,7 @@ def main():
     embed = DiscordEmbed(title='✅️ Stato ✅️', description=reboot_msg)
     embed.set_author(name='Comune di Castel Madama Bot', url=DISCORD_AUTHOR_URL, icon_url=DISCORD_AUTHOR_ICON)
     webhook.add_embed(embed)
-    webhook.execute()
+    webhook.execute(remove_embeds=True)
 
     # create cookies.txt file using env var value
     if not useCredentials:

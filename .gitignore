@@ -127,3 +127,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# cookies and db files
+cookies.txt
+last_state.txt
