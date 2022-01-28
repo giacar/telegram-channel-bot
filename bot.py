@@ -381,22 +381,22 @@ def last_post_message(update, context):
             update.message.reply_text("Mi dispiace ma l'ultimo post al momento non è disponibile. Riprova più tardi.")
 
         elif len(last_post.images) == 1:
-            bot.send_photo(CHANNEL, last_post.images[0], disable_notification=True)
+            update.message.reply_photo(last_post.images[0], disable_notification=True)
         
         else:
-            bot.send_media_group(CHANNEL, [telegram.InputMediaPhoto(imgurl) for imgurl in last_post.images], disable_notification=True)
+            update.message.reply_media_group([telegram.InputMediaPhoto(imgurl) for imgurl in last_post.images], disable_notification=True)
     
     else:
         msg = last_post.message
         if last_post.post_id :          # add facebook link if post_id present
             msg = msg+"\n\n"+"https://www.facebook.com/"+CHANNEL[1:]+"/posts/"+str(last_post.post_id)
-        tg_msg = bot.sendMessage(CHANNEL, msg)
+        tg_msg = update.message.reply_text(msg)
         
         if len(last_post.images) == 1:
-            bot.send_photo(CHANNEL, last_post.images[0], reply_to_message_id=tg_msg.message_id, disable_notification=True)
+            update.message.reply_photo(last_post.images[0], reply_to_message_id=tg_msg.message_id, disable_notification=True)
         
         elif len(last_post.images) > 1:
-            bot.send_media_group(CHANNEL, [telegram.InputMediaPhoto(imgurl) for imgurl in last_post.images], reply_to_message_id=tg_msg.message_id, disable_notification=True)
+            update.message.reply_media_group([telegram.InputMediaPhoto(imgurl) for imgurl in last_post.images], reply_to_message_id=tg_msg.message_id, disable_notification=True)
 
 
 def donation_message(update, context):
