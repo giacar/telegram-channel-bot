@@ -471,10 +471,10 @@ def main():
     upd.start_polling()
 
     if useDB:
-        last_post.post_id, last_post.message, last_post.timestamp, last_post.isScraped, last_post.images, last_post.image_ids = fromDBToVar()    # load the timestamp from old epochs
+        last_post.post_id, last_post.message, last_post.timestamp, last_post.isScraped, last_post.images, last_post.image_ids = fromDBToVar()    # load the old epoch's state
         last_post.md5 = compute_md5(last_post.message)
     else:
-        last_post.post_id, last_post.message, last_post.timestamp, last_post.isScraped, last_post.images, last_post.image_ids = fromFileToVar()  # load the timestamp from old epochs
+        last_post.post_id, last_post.message, last_post.timestamp, last_post.isScraped, last_post.images, last_post.image_ids = fromFileToVar()  # load the old epoch's state
         last_post.md5 = compute_md5(last_post.message)
     logging.info("Recovered last state, post_id = "+str(last_post.post_id)+", timestamp = "+str(last_post.timestamp))
 
