@@ -105,7 +105,7 @@ def handle_stop(sig, frame):
         if len(cur.fetchall()) == 0:
             cur.execute("INSERT INTO state VALUES (%s,%s,%s,%s,%s);", (str(last_post.post_id),str(last_post.message),str(last_post.timestamp),str(' '.join(map(str,last_post.images))),str(' '.join(map(str,last_post.image_ids)))))
         else:
-            cur.execute("UPDATE state SET ts=%s, msg=%s, post_id=%s, img_ids=%s, img_urls=%s;", (str(last_post.post_id),str(last_post.message),str(last_post.timestamp),str(' '.join(map(str,last_post.images))),str(' '.join(map(str,last_post.image_ids)))))
+            cur.execute("UPDATE state SET ts=%s, msg=%s, post_id=%s, img_urls=%s, img_ids=%s;", (str(last_post.post_id),str(last_post.message),str(last_post.timestamp),str(' '.join(map(str,last_post.images))),str(' '.join(map(str,last_post.image_ids)))))
 
         conn.commit()
         
@@ -140,7 +140,7 @@ def fromVarToDB():
     if len(cur.fetchall()) == 0:
         cur.execute("INSERT INTO state VALUES (%s,%s,%s,%s,%s);", (str(last_post.post_id),str(last_post.message),str(last_post.timestamp),str(' '.join(map(str,last_post.images))),str(' '.join(map(str,last_post.image_ids)))))
     else:
-        cur.execute("UPDATE state SET ts=%s, msg=%s, post_id=%s, img_ids=%s, img_urls=%s;", (str(last_post.post_id),str(last_post.message),str(last_post.timestamp),str(' '.join(map(str,last_post.images))),str(' '.join(map(str,last_post.image_ids)))))
+        cur.execute("UPDATE state SET ts=%s, msg=%s, post_id=%s, img_urls=%s, img_ids=%s;", (str(last_post.post_id),str(last_post.message),str(last_post.timestamp),str(' '.join(map(str,last_post.images))),str(' '.join(map(str,last_post.image_ids)))))
 
     conn.commit()
     cur.close()
@@ -166,7 +166,7 @@ def fromDBToVar():
         msg = str(row[1])
         ts = int(row[2])
         iurl = [str(el) for el in row[3].strip().split()]
-        iid = [int(el) for el in row[4].strip().split()]
+        iid = [int(el or 0) for el in row[4].strip().split()]
 
     cur.close()
     return pid, msg, ts, True if ts>0 else False, iurl, iid
@@ -192,7 +192,7 @@ def fromFileToVar():
             msg = str(file.readline().strip())
             ts = int(file.readline().strip())
             iurl = [str(el) for el in file.readline().strip().split()]
-            iid = [int(el) for el in file.readline().strip().split()]
+            iid = [int(el or 0) for el in file.readline().strip().split()]
     
     except FileNotFoundError:
         logging.error("File last_state.txt not found, default values applied")
@@ -370,7 +370,7 @@ def checkAndSendNewPost():
                 sendOnlyPhoto = True
     
     if isNewPost:
-        logging.info("New value last post timestamp = "+str(last_post.timestamp)+", id = "+str(last_post.post_id))
+        logging.info("New values of last post: id = "+str(last_post.post_id)+"timestamp = "+str(last_post.timestamp))
         if useDB:
             fromVarToDB()
             logging.info("New state stored in the database")
@@ -381,7 +381,7 @@ def checkAndSendNewPost():
         if isNeverSend:
             sendMessage(sendOnlyPhoto)
         else:
-            logging.info("Duplicated post, ignored")
+            logging.info("Duplicated post, not sent")
 
 
 # some handling message functions for the different bot commands
@@ -516,7 +516,7 @@ def main():
 
             checkAndSendNewPost()
 
-        #check each 1 hour
+        #log each 1 hour
         if j==60:
             j=0
             logging.info("Bot is active, post_id = "+str(last_post.post_id)+", timestamp = "+str(last_post.timestamp))
