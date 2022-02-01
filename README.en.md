@@ -9,12 +9,12 @@ The application is written in Python, in particular using the [Telegram](https:/
 
 ## Functionality
 The bot allows you to take advantage of the following features:
-* Pubblishing of a new facebook post into a Telegram channel.
+* Pubblishing of a new facebook post into a Telegram channel, including photos and photo-only post.
 * Interaction with the bot in order to get last post.
 * Possibility to customize the scraping choosing between RSS service, PIP library or both of them. 
 
 ## To Do
-* Integrate photos into posts and support photo-only posts.\
+* ~~Integrate photos into posts and support photo-only posts.~~\
 \
 For other suggestions and reports you can open an issue from [here](https://github.com/giacar/telegram-channel-bot/issues).
 

@@ -9,12 +9,12 @@ L'applicazione è scritta in Python, in particolare usando la libreria API [Tele
 
 ## Funzionalità
 Il bot permette di sfruttare le seguenti funzionalità:
-* Pubblicazione dei nuovi post Facebook su un canale Telegram.
+* Pubblicazione dei nuovi post Facebook con foto o post con sole foto su un canale Telegram.
 * Interazione diretta con il bot per ottenere l'ultimo post pubblicato.
 * Possibilità di personalizzare la sorgente dati scegliendo tra il feed RSS, la libreria pip o entrambe.
 
 ## To Do
-* Integrare le foto nei post e il supporto ai post con sole foto.\
+* ~~Integrare le foto nei post e il supporto ai post con sole foto.~~\
 \
 Per altri suggerimenti o segnalazioni è possibile aprire un issue da [qui](https://github.com/giacar/telegram-channel-bot/issues).
 
