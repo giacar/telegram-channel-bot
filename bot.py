@@ -105,7 +105,7 @@ def handle_stop(sig, frame):
         if len(cur.fetchall()) == 0:
             cur.execute("INSERT INTO state VALUES (%s,%s,%s,%s,%s);", (str(last_post.post_id),str(last_post.message),str(last_post.timestamp),str(' '.join(map(str,last_post.images))),str(' '.join(map(str,last_post.image_ids)))))
         else:
-            cur.execute("UPDATE state SET ts=%s, msg=%s, post_id=%s, img_urls=%s, img_ids=%s;", (str(last_post.post_id),str(last_post.message),str(last_post.timestamp),str(' '.join(map(str,last_post.images))),str(' '.join(map(str,last_post.image_ids)))))
+            cur.execute("UPDATE state SET post_id=%s, msg=%s, ts=%s, img_urls=%s, img_ids=%s;", (str(last_post.post_id),str(last_post.message),str(last_post.timestamp),str(' '.join(map(str,last_post.images))),str(' '.join(map(str,last_post.image_ids)))))
 
         conn.commit()
         
@@ -140,7 +140,7 @@ def fromVarToDB():
     if len(cur.fetchall()) == 0:
         cur.execute("INSERT INTO state VALUES (%s,%s,%s,%s,%s);", (str(last_post.post_id),str(last_post.message),str(last_post.timestamp),str(' '.join(map(str,last_post.images))),str(' '.join(map(str,last_post.image_ids)))))
     else:
-        cur.execute("UPDATE state SET ts=%s, msg=%s, post_id=%s, img_urls=%s, img_ids=%s;", (str(last_post.post_id),str(last_post.message),str(last_post.timestamp),str(' '.join(map(str,last_post.images))),str(' '.join(map(str,last_post.image_ids)))))
+        cur.execute("UPDATE state SET post_id=%s, msg=%s, ts=%s, img_urls=%s, img_ids=%s;", (str(last_post.post_id),str(last_post.message),str(last_post.timestamp),str(' '.join(map(str,last_post.images))),str(' '.join(map(str,last_post.image_ids)))))
 
     conn.commit()
     cur.close()
@@ -169,7 +169,7 @@ def fromDBToVar():
         iid = [int(el or 0) for el in row[4].strip().split()]
 
     cur.close()
-    return pid, msg, pid, True if pid>0 else False, iurl, iid
+    return pid, msg, ts, True if pid>0 else False, iurl, iid
 
 
 # export last state to local file
@@ -198,7 +198,7 @@ def fromFileToVar():
         logging.error("File last_state.txt not found, default values applied")
         pass
     
-    return pid, msg, pid, True if pid>0 else False, iurl, iid
+    return pid, msg, ts, True if pid>0 else False, iurl, iid
 
 
 # get the RSS content of the page
@@ -371,7 +371,7 @@ def checkAndSendNewPost():
                 sendOnlyPhoto = True
     
     if isNewPost:
-        logging.info("New values of last post: id = "+str(last_post.post_id)+", timestamp = "+str(last_post.timestamp))
+        logging.info("New values of last post: post_id = "+str(last_post.post_id)+", timestamp = "+str(last_post.timestamp))
         if useDB:
             fromVarToDB()
             logging.info("New state stored in the database")
