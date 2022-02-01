@@ -301,10 +301,10 @@ def sendMessage(sendOnlyPhoto):
             tg_msg = bot.send_message(CHANNEL, msg)
         
         if len(last_post.images) == 1:
-            bot.send_photo(CHANNEL, str(last_post.images[0]), reply_to_message_id=tg_msg.message_id, disable_notification=(True if not sendOnlyPhoto else False))
+            bot.send_photo(CHANNEL, str(last_post.images[0]), reply_to_message_id=(tg_msg.message_id if tg_msg != None else None), disable_notification=(True if not sendOnlyPhoto else False))
         
         elif len(last_post.images) > 1:
-            bot.send_media_group(CHANNEL, [InputMediaPhoto(str(imgurl)) for imgurl in last_post.images], reply_to_message_id=tg_msg.message_id, disable_notification=(True if not sendOnlyPhoto else False))
+            bot.send_media_group(CHANNEL, [InputMediaPhoto(str(imgurl)) for imgurl in last_post.images], reply_to_message_id=(tg_msg.message_id if tg_msg != None else None), disable_notification=(True if not sendOnlyPhoto else False))
         
     if sent: logging.info("... sent!")
 
@@ -370,7 +370,7 @@ def checkAndSendNewPost():
                 sendOnlyPhoto = True
     
     if isNewPost:
-        logging.info("New values of last post: id = "+str(last_post.post_id)+"timestamp = "+str(last_post.timestamp))
+        logging.info("New values of last post: id = "+str(last_post.post_id)+", timestamp = "+str(last_post.timestamp))
         if useDB:
             fromVarToDB()
             logging.info("New state stored in the database")
