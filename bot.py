@@ -169,7 +169,7 @@ def fromDBToVar():
         iid = [int(el or 0) for el in row[4].strip().split()]
 
     cur.close()
-    return pid, msg, ts, True if ts>0 else False, iurl, iid
+    return pid, msg, pid, True if pid>0 else False, iurl, iid
 
 
 # export last state to local file
@@ -198,7 +198,7 @@ def fromFileToVar():
         logging.error("File last_state.txt not found, default values applied")
         pass
     
-    return pid, msg, ts, True if ts>0 else False, iurl, iid
+    return pid, msg, pid, True if pid>0 else False, iurl, iid
 
 
 # get the RSS content of the page
@@ -301,10 +301,10 @@ def sendMessage(sendOnlyPhoto):
             tg_msg = bot.send_message(CHANNEL, msg)
         
         if len(last_post.images) == 1:
-            bot.send_photo(CHANNEL, str(last_post.images[0]), reply_to_message_id=(tg_msg.message_id if tg_msg != None else None), disable_notification=(True if not sendOnlyPhoto else False))
+            bot.send_photo(CHANNEL, str(last_post.images[0]), reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=(True if not sendOnlyPhoto else False))
         
         elif len(last_post.images) > 1:
-            bot.send_media_group(CHANNEL, [InputMediaPhoto(str(imgurl)) for imgurl in last_post.images], reply_to_message_id=(tg_msg.message_id if tg_msg != None else None), disable_notification=(True if not sendOnlyPhoto else False))
+            bot.send_media_group(CHANNEL, [InputMediaPhoto(str(imgurl)) for imgurl in last_post.images], reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=(True if not sendOnlyPhoto else False))
         
     if sent: logging.info("... sent!")
 
@@ -319,29 +319,30 @@ def checkAndSendNewPost():
     isNeverSend = False
     sendOnlyPhoto = False
     
-    '''
     # check last RSS post
-    head_rss_ts = int(datetime.timestamp(parser.parse(df["Date"][0])))
-    if useRSS and head_rss_ts > last_post.timestamp : # no check on post_id since not present
-        isNewPost = True
-        logging.info("New post detected!")
-        last_post.timestamp = head_rss_ts
-        detected_msg = clean_msg(df["Description"][0])
-        detected_md5 = compute_md5(detected_msg)
-        if last_post.md5 != detected_md5:
-            # update state
-            last_post.message = detected_msg
-            last_post.md5 = detected_md5
-            last_post.post_id = 0
-            last_post.isScraped = False
-            last_post.images = []
-            isNeverSend = True
-    '''
+    if useRSS and (not (isinstance(df, int) and df == -1)):
+        head_rss_pid = int(df['Link'][0].strip().split('/')[-1])
+        head_rss_ts = int(datetime.timestamp(parser.parse(df['Date'][0])))
+        
+        if head_rss_pid > last_post.post_id :
+            isNewPost = True
+            logging.info("New post detected!")
+            last_post.post_id = head_rss_pid
+            last_post.timestamp = head_rss_ts
+            detected_msg = clean_msg(df['Description'][0])
+            detected_md5 = compute_md5(detected_msg)
+            if last_post.md5 != detected_md5:
+                # update state
+                last_post.message = detected_msg
+                last_post.md5 = detected_md5
+                last_post.isScraped = False
+                last_post.images = []
+                isNeverSend = True
     
     # check last scraped post 
     if useFBScraping and (not (isinstance(df_scraped, int) and df_scraped == -1)):
-        head_scraped_pid = int(df_scraped["post_id"][0])
-        head_scraped_ts = int(df_scraped["timestamp"][0])
+        head_scraped_pid = int(df_scraped['post_id'][0])
+        head_scraped_ts = int(df_scraped['timestamp'][0])
         
         if head_scraped_pid > last_post.post_id :
             isNewPost = True
@@ -359,7 +360,7 @@ def checkAndSendNewPost():
                 last_post.image_ids = df_scraped['image_ids'][0]
                 isNeverSend = True
             elif not last_post.isScraped:
-                # update msg post_id since prev RSS copy = 0
+                # update with new msg
                 last_post.isScraped = True
                 last_post.images = df_scraped['images'][0]
                 last_post.image_ids = df_scraped['image_ids'][0]
@@ -409,10 +410,10 @@ def last_post_message(update, context):
         tg_msg = update.message.reply_text(msg)
         
         if len(last_post.images) == 1:
-            update.message.reply_photo(str(last_post.images[0]), reply_to_message_id=tg_msg.message_id, disable_notification=True)
+            update.message.reply_photo(str(last_post.images[0]), reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=True)
         
         elif len(last_post.images) > 1:
-            update.message.reply_media_group([InputMediaPhoto(str(imgurl)) for imgurl in last_post.images], reply_to_message_id=tg_msg.message_id, disable_notification=True)
+            update.message.reply_media_group([InputMediaPhoto(str(imgurl)) for imgurl in last_post.images], reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=True)
 
 
 def donation_message(update, context):
@@ -479,16 +480,23 @@ def main():
     logging.info("Recovered last state, post_id = "+str(last_post.post_id)+", timestamp = "+str(last_post.timestamp))
 
     # Initialize tables
-    df = initTable()
-    while isinstance(df, int) and df==-1:
-        time.sleep(10)
+    if useRSS:
         df = initTable()
-    df_scraped = initScrapedTable()
-    while isinstance(df_scraped, int) and df_scraped==-1:
-        time.sleep(10)
+        while isinstance(df, int) and df==-1:
+            time.sleep(10)
+            df = initTable()
+        logging.debug("Table: \n"+df.to_string())
+    else: 
+        df = -1
+    
+    if useFBScraping:
         df_scraped = initScrapedTable()
-
-    print(df_scraped)
+        while isinstance(df_scraped, int) and df_scraped==-1:
+            time.sleep(10)
+            df_scraped = initScrapedTable()
+        logging.debug("Table: \n"+df_scraped.to_string())
+    else:
+        df_scraped = -1
 
     logging.info("Table initialized")
     logging.info("Bot is ready")
@@ -504,13 +512,13 @@ def main():
         if i==30:
             i=0
 
-            df = initTable()
-            if isinstance(df, int) and df == -1:
+            df = initTable() if useRSS else -1
+            if useRSS and isinstance(df, int) and df == -1:
                 time.sleep(10)
                 continue
 
-            df_scraped = initScrapedTable()
-            if isinstance(df_scraped, int) and df_scraped == -1:
+            df_scraped = initScrapedTable() if useFBScraping else -1
+            if useFBScraping and isinstance(df_scraped, int) and df_scraped == -1:
                 time.sleep(10)
                 continue
 
