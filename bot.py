@@ -56,6 +56,10 @@ def compute_md5(input):
 def clean_msg(input):
     return input.replace("...", "", 1)
 
+# clean image urls before to use
+def clean_url(input):
+    return input.replace("\\", "")
+
 # last post class
 class LastPost:
     def __init__(self, pid, msg, ts, imgs, iids, scraped):
@@ -287,10 +291,10 @@ def sendMessage(sendOnlyPhoto):
             logging.info("... empty message, not sent!")
     
         elif len(last_post.images) == 1:
-            bot.send_photo(CHANNEL, last_post.images[0], disable_notification=True)
+            bot.send_photo(CHANNEL, clean_url(last_post.images[0]), disable_notification=False)
         
         else:
-            bot.send_media_group(CHANNEL, [InputMediaPhoto(str(imgurl)) for imgurl in last_post.images], disable_notification=True)
+            bot.send_media_group(CHANNEL, [InputMediaPhoto(clean_url(str(imgurl))) for imgurl in last_post.images], disable_notification=False)
     
     else:
         tg_msg = None
@@ -301,10 +305,10 @@ def sendMessage(sendOnlyPhoto):
             tg_msg = bot.send_message(CHANNEL, msg)
         
         if len(last_post.images) == 1:
-            bot.send_photo(CHANNEL, str(last_post.images[0]), reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=(True if not sendOnlyPhoto else False))
+            bot.send_photo(CHANNEL, clean_url(str(last_post.images[0])), reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=(True if not sendOnlyPhoto else False))
         
         elif len(last_post.images) > 1:
-            bot.send_media_group(CHANNEL, [InputMediaPhoto(str(imgurl)) for imgurl in last_post.images], reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=(True if not sendOnlyPhoto else False))
+            bot.send_media_group(CHANNEL, [InputMediaPhoto(clean_url(str(imgurl))) for imgurl in last_post.images], reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=(True if not sendOnlyPhoto else False))
         
     if sent: logging.info("... sent!")
 
@@ -398,10 +402,10 @@ def last_post_message(update, context):
             update.message.reply_text("Mi dispiace ma l'ultimo post al momento non è disponibile. Riprova più tardi.")
 
         elif len(last_post.images) == 1:
-            update.message.reply_photo(str(last_post.images[0]), disable_notification=True)
+            update.message.reply_photo(clean_url(str(last_post.images[0])), disable_notification=False)
         
         else:
-            update.message.reply_media_group([InputMediaPhoto(str(imgurl)) for imgurl in last_post.images], disable_notification=True)
+            update.message.reply_media_group([InputMediaPhoto(clean_url(str(imgurl))) for imgurl in last_post.images], disable_notification=False)
     
     else:
         msg = last_post.message
@@ -410,10 +414,10 @@ def last_post_message(update, context):
         tg_msg = update.message.reply_text(msg)
         
         if len(last_post.images) == 1:
-            update.message.reply_photo(str(last_post.images[0]), reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=True)
+            update.message.reply_photo(clean_url(str(last_post.images[0])), reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=True)
         
         elif len(last_post.images) > 1:
-            update.message.reply_media_group([InputMediaPhoto(str(imgurl)) for imgurl in last_post.images], reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=True)
+            update.message.reply_media_group([InputMediaPhoto(clean_url(str(imgurl))) for imgurl in last_post.images], reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=True)
 
 
 def donation_message(update, context):
