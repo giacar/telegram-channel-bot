@@ -17,7 +17,7 @@ import psycopg2
 import hashlib
 
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
-from telegram import InputMediaPhoto
+from telegram import InputMediaPhoto, InputMediaVideo
 import telegram
 
 from discord_webhook import DiscordWebhook, DiscordEmbed
@@ -35,6 +35,7 @@ TOKEN = os.environ.get('TOKEN_BOT', None)
 CHANNEL = os.environ.get('CHANNEL_ID', None)
 RESETBOT = "https://api.telegram.org/bot"+str(TOKEN)+"/setWebhook?url="
 DATABASE_URL = os.environ.get('DATABASE_URL', None)
+MINUTES = int(os.environ.get('MINUTES', None) or 15)
 
 DISCORD_URL = os.environ.get('DISCORD_URL', None)
 DISCORD_AUTHOR_URL = os.environ.get('DISCORD_AUTHOR_URL', None)
@@ -62,17 +63,19 @@ def clean_url(input):
 
 # last post class
 class LastPost:
-    def __init__(self, pid, msg, ts, imgs, iids, scraped):
+    def __init__(self, pid, msg, ts, imgs, iids, vds, ivds, scraped):
         self.post_id = pid
         self.message = msg
         self.md5 = compute_md5(clean_msg(msg))
         self.timestamp = ts
         self.images = imgs
         self.image_ids = iids
+        self.videos = vds
+        self.video_ids = ivds
         self.isScraped = scraped
 
 # State
-last_post = LastPost(0, '', 0, [], [], True)
+last_post = LastPost(0, '', 0, [], [], [], [], True)
 
 
 # check the connection with the postgres database
@@ -107,9 +110,9 @@ def handle_stop(sig, frame):
         
         cur.execute("SELECT * FROM state;")
         if len(cur.fetchall()) == 0:
-            cur.execute("INSERT INTO state VALUES (%s,%s,%s,%s,%s);", (str(last_post.post_id),str(last_post.message),str(last_post.timestamp),str(' '.join(map(str,last_post.images))),str(' '.join(map(str,last_post.image_ids)))))
+            cur.execute("INSERT INTO state VALUES (%s,%s,%s,%s,%s,%s,%s);", (str(last_post.post_id),str(last_post.message),str(last_post.timestamp),str(' '.join(map(str,last_post.images))),str(' '.join(map(str,last_post.image_ids))),str(' '.join(map(str,last_post.videos))),str(' '.join(map(str,last_post.video_ids)))))
         else:
-            cur.execute("UPDATE state SET post_id=%s, msg=%s, ts=%s, img_urls=%s, img_ids=%s;", (str(last_post.post_id),str(last_post.message),str(last_post.timestamp),str(' '.join(map(str,last_post.images))),str(' '.join(map(str,last_post.image_ids)))))
+            cur.execute("UPDATE state SET post_id=%s, msg=%s, ts=%s, img_urls=%s, img_ids=%s, vd_urls=%s, vd_ids=%s;", (str(last_post.post_id),str(last_post.message),str(last_post.timestamp),str(' '.join(map(str,last_post.images))),str(' '.join(map(str,last_post.image_ids))),str(' '.join(map(str,last_post.videos))),str(' '.join(map(str,last_post.video_ids)))))
 
         conn.commit()
         
@@ -117,7 +120,7 @@ def handle_stop(sig, frame):
         conn.close()
     else:
         with open("last_state.txt", "w") as file:
-            file.write(str(last_post.post_id)+'\n'+str(last_post.message)+'\n'+str(last_post.timestamp)+'\n'+str(' '.join(map(str,last_post.images)))+'\n'+str(' '.join(map(str,last_post.image_ids))))
+            file.write(str(last_post.post_id)+'\n'+str(last_post.message)+'\n'+str(last_post.timestamp)+'\n'+str(' '.join(map(str,last_post.images)))+'\n'+str(' '.join(map(str,last_post.image_ids)))+str(' '.join(map(str,last_post.videos)))+str(' '.join(map(str,last_post.video_ids))))
 
     logging.info("Last state is updated")
 
@@ -142,9 +145,9 @@ def fromVarToDB():
     
     cur.execute("SELECT * FROM state;")
     if len(cur.fetchall()) == 0:
-        cur.execute("INSERT INTO state VALUES (%s,%s,%s,%s,%s);", (str(last_post.post_id),str(last_post.message),str(last_post.timestamp),str(' '.join(map(str,last_post.images))),str(' '.join(map(str,last_post.image_ids)))))
+        cur.execute("INSERT INTO state VALUES (%s,%s,%s,%s,%s,%s,%s);", (str(last_post.post_id),str(last_post.message),str(last_post.timestamp),str(' '.join(map(str,last_post.images))),str(' '.join(map(str,last_post.image_ids))),str(' '.join(map(str,last_post.videos))),str(' '.join(map(str,last_post.video_ids)))))
     else:
-        cur.execute("UPDATE state SET post_id=%s, msg=%s, ts=%s, img_urls=%s, img_ids=%s;", (str(last_post.post_id),str(last_post.message),str(last_post.timestamp),str(' '.join(map(str,last_post.images))),str(' '.join(map(str,last_post.image_ids)))))
+        cur.execute("UPDATE state SET post_id=%s, msg=%s, ts=%s, img_urls=%s, img_ids=%s, vd_urls=%s, vd_ids=%s;", (str(last_post.post_id),str(last_post.message),str(last_post.timestamp),str(' '.join(map(str,last_post.images))),str(' '.join(map(str,last_post.image_ids))),str(' '.join(map(str,last_post.videos))),str(' '.join(map(str,last_post.video_ids)))))
 
     conn.commit()
     cur.close()
@@ -171,15 +174,17 @@ def fromDBToVar():
         ts = int(row[2])
         iurl = [str(el) for el in row[3].strip().split()]
         iid = [int(el or 0) for el in row[4].strip().split()]
+        vurl = [str(el) for el in row[5].strip().split()]
+        vid = [int(el or 0) for el in row[6].strip().split()]
 
     cur.close()
-    return pid, msg, ts, True if pid>0 else False, iurl, iid
+    return pid, msg, ts, True if pid>0 else False, iurl, iid, vurl, vid
 
 
 # export last state to local file
 def fromVarToFile():
     with open("last_state.txt", "w") as file:
-        file.write(str(last_post.post_id)+'\n'+str(last_post.message)+'\n'+str(last_post.timestamp)+'\n'+str(' '.join(map(str,last_post.images)))+'\n'+str(' '.join(map(str,last_post.image_ids))))
+        file.write(str(last_post.post_id)+'\n'+str(last_post.message)+'\n'+str(last_post.timestamp)+'\n'+str(' '.join(map(str,last_post.images)))+'\n'+str(' '.join(map(str,last_post.image_ids)))+str(' '.join(map(str,last_post.videos)))+str(' '.join(map(str,last_post.video_ids))))
 
 
 # export last state from local file
@@ -197,12 +202,14 @@ def fromFileToVar():
             ts = int(file.readline().strip())
             iurl = [str(el) for el in file.readline().strip().split()]
             iid = [int(el or 0) for el in file.readline().strip().split()]
+            vurl = [str(el) for el in file.readline().strip().split()]
+            vid = [int(el or 0) for el in file.readline().strip().split()]
     
     except FileNotFoundError:
         logging.error("File last_state.txt not found, default values applied")
         pass
     
-    return pid, msg, ts, True if pid>0 else False, iurl, iid
+    return pid, msg, ts, True if pid>0 else False, iurl, iid, vurl, vid
 
 
 # get the RSS content of the page
@@ -256,18 +263,22 @@ def initScrapedTable():
             if post['text'] != None and post['time'] != None:
                 post_id = post['post_id'] if post['post_id'] != None else 0
                 images = post['images'] if post['images'] != None else []
-                image_ids = post['image_ids'] if post['image_ids'] != None else []
+                image_ids = [int(i or 0) for i in (post['image_ids'] if post['image_ids'] != None else [])]
+                videos = post['video'].split() if post['video'] != None else []
+                video_ids = [int(i or 0) for i in (post['video_id'].split() if post['video_id'] != None else [])]
                 
-                list_data.append([ post_id, clean_msg(post['text']), int(datetime.timestamp(post['time'])), images, image_ids ])
+                list_data.append([ post_id, clean_msg(post['text']), int(datetime.timestamp(post['time'])), images, image_ids, videos, video_ids ])
         
         if len(list_data) == 0:
             return -1
 
         list_data = sorted(list_data, key=itemgetter(0), reverse=True)      # sorting for post_id in descending order
 
-        df_scraped = pd.DataFrame(columns = ['post_id', 'text', 'timestamp', 'images', 'image_ids'])
+        df_scraped = pd.DataFrame(columns = ['post_id', 'text', 'timestamp', 'images', 'image_ids', 'videos', 'video_ids'])
         df_scraped['images'] = df_scraped['images'].astype('object')
         df_scraped['image_ids'] = df_scraped['image_ids'].astype('object')
+        df_scraped['videos'] = df_scraped['videos'].astype('object')
+        df_scraped['video_ids'] = df_scraped['video_ids'].astype('object')
 
         column_list = df_scraped.columns.values.tolist()
         for j in range(len(column_list)) :
@@ -281,34 +292,48 @@ def initScrapedTable():
 
 
 # send message to Telegram Channel
-def sendMessage(sendOnlyPhoto):
+def sendMessage(sendOnlyMedia):
     logging.info("Sending new post to Channel...")
     sent = True
 
     if last_post.message == "":
-        if len(last_post.images) == 0:
+        if len(last_post.images) == 0 or len(last_post.videos) == 0:
             sent = False
             logging.info("... empty message, not sent!")
     
-        elif len(last_post.images) == 1:
+        elif len(last_post.images) == 1 and len(last_post.videos) == 0:
             bot.send_photo(CHANNEL, clean_url(last_post.images[0]), disable_notification=False)
+
+        elif len(last_post.images) == 0 and len(last_post.videos) == 1:
+            bot.send_video(CHANNEL, clean_url(last_post.videos[0]), disable_notification=False)
         
         else:
-            bot.send_media_group(CHANNEL, [InputMediaPhoto(clean_url(str(imgurl))) for imgurl in last_post.images], disable_notification=False)
+            if len(last_post.images):
+                bot.send_media_group(CHANNEL, [InputMediaPhoto(clean_url(str(imgurl))) for imgurl in last_post.images], disable_notification=False)
+        
+            if len(last_post.videos):
+                bot.send_media_group(CHANNEL, [InputMediaVideo(clean_url(str(vdurl))) for vdurl in last_post.videos], disable_notification=False)
     
     else:
         tg_msg = None
-        if not sendOnlyPhoto:
+        if not sendOnlyMedia:
             msg = last_post.message
             if last_post.post_id :          # add facebook link if post_id present
                 msg = msg+"\n\n"+"https://www.facebook.com/"+CHANNEL[1:]+"/posts/"+str(last_post.post_id)
             tg_msg = bot.send_message(CHANNEL, msg)
         
-        if len(last_post.images) == 1:
-            bot.send_photo(CHANNEL, clean_url(str(last_post.images[0])), reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=(True if not sendOnlyPhoto else False))
+        if len(last_post.images) == 1 and len(last_post.videos) == 0:
+            bot.send_photo(CHANNEL, clean_url(str(last_post.images[0])), reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=(True if not sendOnlyMedia else False))
         
-        elif len(last_post.images) > 1:
-            bot.send_media_group(CHANNEL, [InputMediaPhoto(clean_url(str(imgurl))) for imgurl in last_post.images], reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=(True if not sendOnlyPhoto else False))
+        elif len(last_post.images) == 0 and len(last_post.videos) == 1:
+            bot.send_photo(CHANNEL, clean_url(str(last_post.videos[0])), reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=(True if not sendOnlyMedia else False))
+        
+        else:
+            if len(last_post.images):
+                bot.send_media_group(CHANNEL, [InputMediaPhoto(clean_url(str(imgurl))) for imgurl in last_post.images], reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=(True if not sendOnlyMedia else False))
+        
+            if len(last_post.videos):
+                bot.send_media_group(CHANNEL, [InputMediaVideo(clean_url(str(vdurl))) for vdurl in last_post.videos], reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=(True if not sendOnlyMedia else False))
         
     if sent: logging.info("... sent!")
 
@@ -321,7 +346,7 @@ def checkAndSendNewPost():
 
     isNewPost = False
     isNeverSend = False
-    sendOnlyPhoto = False
+    sendOnlyMedia = False
     
     # check last RSS post
     if useRSS and (not (isinstance(df, int) and df == -1)):
@@ -368,11 +393,13 @@ def checkAndSendNewPost():
                 last_post.isScraped = True
                 last_post.images = df_scraped['images'][0]
                 last_post.image_ids = df_scraped['image_ids'][0]
-            elif last_post.image_ids.sort() != df_scraped['image_ids'][0].sort():
-                # same or empty text but different images
+                last_post.video_ids = df_scraped['video_ids'][0]
+            elif last_post.image_ids.sort() != df_scraped['image_ids'][0].sort() or last_post.video_ids.sort() != df_scraped['video_ids'][0].sort():
+                # same or empty text but different media
                 last_post.image_ids = df_scraped['image_ids'][0]
+                last_post.video_ids = df_scraped['video_ids'][0]
                 isNeverSend = True
-                sendOnlyPhoto = True
+                sendOnlyMedia = True
     
     if isNewPost:
         logging.info("New values of last post: post_id = "+str(last_post.post_id)+", timestamp = "+str(last_post.timestamp))
@@ -384,7 +411,7 @@ def checkAndSendNewPost():
             logging.info("New state stored in the local file")
         
         if isNeverSend:
-            sendMessage(sendOnlyPhoto)
+            sendMessage(sendOnlyMedia)
         else:
             logging.info("Duplicated post, not sent")
 
@@ -401,11 +428,18 @@ def last_post_message(update, context):
         if len(last_post.images) == 0:
             update.message.reply_text("Mi dispiace ma l'ultimo post al momento non è disponibile. Riprova più tardi.")
 
-        elif len(last_post.images) == 1:
+        elif len(last_post.images) == 1 and len(last_post.videos) == 0:
             update.message.reply_photo(clean_url(str(last_post.images[0])), disable_notification=False)
         
+        elif len(last_post.images) == 0 and len(last_post.videos) == 1:
+            update.message.reply_video(clean_url(str(last_post.videos[0])), disable_notification=False)
+        
         else:
-            update.message.reply_media_group([InputMediaPhoto(clean_url(str(imgurl))) for imgurl in last_post.images], disable_notification=False)
+            if len(last_post.images):
+                update.message.reply_media_group([InputMediaPhoto(clean_url(str(imgurl))) for imgurl in last_post.images], disable_notification=False)
+            
+            if len(last_post.videos):
+                update.message.reply_media_group([InputMediaVideo(clean_url(str(vdurl))) for vdurl in last_post.videos], disable_notification=False)
     
     else:
         msg = last_post.message
@@ -413,11 +447,18 @@ def last_post_message(update, context):
             msg = msg+"\n\n"+"https://www.facebook.com/"+CHANNEL[1:]+"/posts/"+str(last_post.post_id)
         tg_msg = update.message.reply_text(msg)
         
-        if len(last_post.images) == 1:
+        if len(last_post.images) == 1 and len(last_post.videos) == 0:
             update.message.reply_photo(clean_url(str(last_post.images[0])), reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=True)
         
-        elif len(last_post.images) > 1:
-            update.message.reply_media_group([InputMediaPhoto(clean_url(str(imgurl))) for imgurl in last_post.images], reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=True)
+        elif len(last_post.images) == 0 and len(last_post.videos) == 1:
+            update.message.reply_video(clean_url(str(last_post.videos[0])), reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=True)
+        
+        else:
+            if len(last_post.images):
+                update.message.reply_media_group([InputMediaPhoto(clean_url(str(imgurl))) for imgurl in last_post.images], reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=True)
+            
+            if len(last_post.images):
+                update.message.reply_media_group([InputMediaVideo(clean_url(str(vdurl))) for vdurl in last_post.videos], reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=True)
 
 
 def donation_message(update, context):
@@ -476,10 +517,10 @@ def main():
     upd.start_polling()
 
     if useDB:
-        last_post.post_id, last_post.message, last_post.timestamp, last_post.isScraped, last_post.images, last_post.image_ids = fromDBToVar()    # load the old epoch's state
+        last_post.post_id, last_post.message, last_post.timestamp, last_post.isScraped, last_post.images, last_post.image_ids, last_post.videos, last_post.video_ids = fromDBToVar()    # load the old epoch's state
         last_post.md5 = compute_md5(last_post.message)
     else:
-        last_post.post_id, last_post.message, last_post.timestamp, last_post.isScraped, last_post.images, last_post.image_ids = fromFileToVar()  # load the old epoch's state
+        last_post.post_id, last_post.message, last_post.timestamp, last_post.isScraped, last_post.images, last_post.image_ids, last_post.videos, last_post.video_ids = fromFileToVar()  # load the old epoch's state
         last_post.md5 = compute_md5(last_post.message)
     logging.info("Recovered last state, post_id = "+str(last_post.post_id)+", timestamp = "+str(last_post.timestamp))
 
@@ -512,8 +553,8 @@ def main():
 
     # Loop
     while (True):
-        # check each 30 minutes
-        if i==30:
+        # check each MINUTES minutes (default 15)
+        if i==MINUTES:
             i=0
 
             df = initTable() if useRSS else -1

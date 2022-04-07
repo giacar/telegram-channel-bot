@@ -15,6 +15,7 @@ Il bot permette di sfruttare le seguenti funzionalità:
 
 ## To Do
 * ~~Integrare le foto nei post e il supporto ai post con sole foto.~~\
+* ~~Integrare i video nei post e il supporto ai post con soli video.~~\
 \
 Per altri suggerimenti o segnalazioni è possibile aprire un issue da [qui](https://github.com/giacar/telegram-channel-bot/issues).
 
