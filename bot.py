@@ -78,6 +78,12 @@ class LastPost:
 last_post = LastPost(0, '', 0, [], [], [], [], True)
 
 
+# reset webhook bot instances
+def reset_bot():
+    with urllib.request.urlopen(RESETBOT) as response:
+        pass
+
+
 # check the connection with the postgres database
 def check_conn():
     global conn     # used to refer to global variable conn
@@ -125,7 +131,8 @@ def handle_stop(sig, frame):
     logging.info("Last state is updated")
 
     upd.stop()
-    logging.info("Stop polling, now I can exit safely")
+    reset_bot()
+    logging.info("Stop polling and reset bot, now I can exit safely")
     
     # pubblish on my Discord Channel
     reboot_msg = "Il dyno si è fermato."
@@ -501,7 +508,7 @@ def main():
     signal.signal(signal.SIGTERM, handle_stop)
     signal.signal(signal.SIGINT, handle_stop)
 
-    urllib.request.urlopen(RESETBOT)
+    reset_bot()
 
     bot = telegram.Bot(TOKEN)
     upd = Updater(TOKEN, use_context=True)
