@@ -4,4 +4,4 @@ python-dateutil
 pytz
 psycopg2-binary
 discord-webhook
-facebook-scraper
+facebook-scraper==0.2.59
