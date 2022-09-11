@@ -36,6 +36,7 @@ CHANNEL = os.environ.get('CHANNEL_ID', None)
 RESETBOT = "https://api.telegram.org/bot"+str(TOKEN)+"/setWebhook?url="
 DATABASE_URL = os.environ.get('DATABASE_URL', None)
 MINUTES = int(os.environ.get('MINUTES', None) or 15)
+PAGES = int(os.environ.get('PAGES', None) or 6)
 
 DISCORD_URL = os.environ.get('DISCORD_URL', None)
 DISCORD_AUTHOR_URL = os.environ.get('DISCORD_AUTHOR_URL', None)
@@ -262,9 +263,9 @@ def initScrapedTable():
 
     try:
         if useCredentials:
-            posts = get_posts(CHANNEL[1:], pages=2, credentials=(os.environ.get('FB_EMAIL', None), os.environ.get('FB_PASS', None)))
+            posts = get_posts(CHANNEL[1:], pages=PAGES, credentials=(os.environ.get('FB_EMAIL', None), os.environ.get('FB_PASS', None)))
         else:
-            posts = get_posts(CHANNEL[1:], pages=2, cookies="cookies.txt")
+            posts = get_posts(CHANNEL[1:], pages=PAGES, cookies="cookies.txt")
 
         for post in posts:
             if post['text'] != None and post['time'] != None:
