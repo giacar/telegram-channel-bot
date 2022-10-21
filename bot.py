@@ -426,55 +426,55 @@ def checkAndSendNewPost():
 
 # some handling message functions for the different bot commands
 def start_message(update, context):
-    logging.info("Command /start from chat_id: " + str(update.message.chat.id))
-    update.message.reply_text("Benvenuto! Questo bot è utile per la pubblicazione dei messaggi nel canale.")
-    update.message.reply_text("Se vuoi leggere l'ultimo post pubblicato, usa il comando /ultimo")
-    update.message.reply_text("Se vuoi fare una piccola donazione, usa il comando /dona")
+    logging.info("Command /start from chat_id: " + str(update.effective_message.chat.id))
+    update.effective_message.reply_text("Benvenuto! Questo bot è utile per la pubblicazione dei messaggi nel canale.")
+    update.effective_message.reply_text("Se vuoi leggere l'ultimo post pubblicato, usa il comando /ultimo")
+    update.effective_message.reply_text("Se vuoi fare una piccola donazione, usa il comando /dona")
 
 def last_post_message(update, context):
     if last_post.message == "":
         if len(last_post.images) == 0:
-            update.message.reply_text("Mi dispiace ma l'ultimo post al momento non è disponibile. Riprova più tardi.")
+            update.effective_message.reply_text("Mi dispiace ma l'ultimo post al momento non è disponibile. Riprova più tardi.")
 
         elif len(last_post.images) == 1 and len(last_post.videos) == 0:
-            update.message.reply_photo(clean_url(str(last_post.images[0])), disable_notification=False)
+            update.effective_message.reply_photo(clean_url(str(last_post.images[0])), disable_notification=False)
         
         elif len(last_post.images) == 0 and len(last_post.videos) == 1:
-            update.message.reply_video(clean_url(str(last_post.videos[0])), disable_notification=False)
+            update.effective_message.reply_video(clean_url(str(last_post.videos[0])), disable_notification=False)
         
         else:
             if len(last_post.images):
-                update.message.reply_media_group([InputMediaPhoto(clean_url(str(imgurl))) for imgurl in last_post.images], disable_notification=False)
+                update.effective_message.reply_media_group([InputMediaPhoto(clean_url(str(imgurl))) for imgurl in last_post.images], disable_notification=False)
             
             if len(last_post.videos):
-                update.message.reply_media_group([InputMediaVideo(clean_url(str(vdurl))) for vdurl in last_post.videos], disable_notification=False)
+                update.effective_message.reply_media_group([InputMediaVideo(clean_url(str(vdurl))) for vdurl in last_post.videos], disable_notification=False)
     
     else:
         msg = last_post.message
         if last_post.post_id :          # add facebook link if post_id present
             msg = msg+"\n\n"+"https://www.facebook.com/"+CHANNEL[1:]+"/posts/"+str(last_post.post_id)
-        tg_msg = update.message.reply_text(msg)
+        tg_msg = update.effective_message.reply_text(msg)
         
         if len(last_post.images) == 1 and len(last_post.videos) == 0:
-            update.message.reply_photo(clean_url(str(last_post.images[0])), reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=True)
+            update.effective_message.reply_photo(clean_url(str(last_post.images[0])), reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=True)
         
         elif len(last_post.images) == 0 and len(last_post.videos) == 1:
-            update.message.reply_video(clean_url(str(last_post.videos[0])), reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=True)
+            update.effective_message.reply_video(clean_url(str(last_post.videos[0])), reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=True)
         
         else:
             if len(last_post.images):
-                update.message.reply_media_group([InputMediaPhoto(clean_url(str(imgurl))) for imgurl in last_post.images], reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=True)
+                update.effective_message.reply_media_group([InputMediaPhoto(clean_url(str(imgurl))) for imgurl in last_post.images], reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=True)
             
             if len(last_post.images):
-                update.message.reply_media_group([InputMediaVideo(clean_url(str(vdurl))) for vdurl in last_post.videos], reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=True)
+                update.effective_message.reply_media_group([InputMediaVideo(clean_url(str(vdurl))) for vdurl in last_post.videos], reply_to_message_id=(tg_msg.message_id if tg_msg!=None else None), disable_notification=True)
 
 
 def donation_message(update, context):
     donation_msg = "Se il bot ti piace e vuoi supportarmi, puoi fare una donazione tramite PayPal [cliccando qui](%s)\. *Grazie\!*"%str(DONATION)
-    update.message.reply_text(donation_msg, parse_mode="MarkdownV2", disable_web_page_preview=True)
+    update.effective_message.reply_text(donation_msg, parse_mode="MarkdownV2", disable_web_page_preview=True)
 
 def nocmd_message(update, context):
-    update.message.reply_text("Comando non riconosciuto: scegli tra /start , /ultimo e /dona")
+    update.effective_message.reply_text("Comando non riconosciuto: scegli tra /start , /ultimo e /dona")
 
 def error(update, context):
     # Log Errors caused by Updates.
