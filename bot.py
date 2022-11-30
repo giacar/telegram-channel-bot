@@ -491,6 +491,8 @@ def main():
     global df
     global df_scraped
 
+    logging.info("Starting bot...")
+
     # pubblish on my Discord Channel
     reboot_msg = "Il dyno si è avviato."
     embed = DiscordEmbed(title='✅️ Stato ✅️', description=reboot_msg)
@@ -506,11 +508,13 @@ def main():
     if useDB:
         logging.info("Connecting to Database...")
         conn = psycopg2.connect(DATABASE_URL, sslmode='require')
-        logging.info("... connected")
+        check_conn()
 
     signal.signal(signal.SIGTERM, handle_stop)
     signal.signal(signal.SIGINT, handle_stop)
-
+    
+    logging.info("Connecting to Telegram...")
+    
     reset_bot()
 
     bot = telegram.Bot(TOKEN)
@@ -525,6 +529,8 @@ def main():
     disp.add_error_handler(error)
 
     upd.start_polling()
+
+    logging.info("Telegram connection is OK, started polling")
 
     if useDB:
         last_post.post_id, last_post.message, last_post.timestamp, last_post.isScraped, last_post.images, last_post.image_ids, last_post.videos, last_post.video_ids = fromDBToVar()    # load the old epoch's state
