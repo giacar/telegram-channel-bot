@@ -504,7 +504,9 @@ def main():
             file.write(str(os.environ.get("COOKIES", None)))
 
     if useDB:
+        logging.info("Connecting to Database...")
         conn = psycopg2.connect(DATABASE_URL, sslmode='require')
+        logging.info("... connected")
 
     signal.signal(signal.SIGTERM, handle_stop)
     signal.signal(signal.SIGINT, handle_stop)
