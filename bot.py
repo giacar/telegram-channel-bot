@@ -54,9 +54,12 @@ useDB = True                # Use DB (True) or local file (False) to store state
 def compute_md5(input):
     return hashlib.md5(input.encode()).hexdigest()
 
-# clean message from ... used by Facebook
+# clean message from 'Altro' used by Facebook
 def clean_msg(input):
-    return input.replace("...", "", 1)
+    idx = input.find("Altro")
+    if idx>0 and input[idx-1].isalpha():
+        input = input[:idx] + input[idx+5:]
+    return input
 
 # clean image urls before to use
 def clean_url(input):
